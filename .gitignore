@@ -1,0 +1,17 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# dependencies & build output
+node_modules/
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# os / editor noise
+.DS_Store
+Thumbs.db
+*.log
