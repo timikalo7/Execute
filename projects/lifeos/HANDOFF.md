@@ -1,113 +1,126 @@
-# LifeOS — Handoff
+# LifeOS Handoff — Session End (2026-06-13)
 
 ## Current Status
 
-**Phase:** Final — waiting on hero image generation via Higgsfield MCP
+**Phase**: MVP complete, design surface production-ready.  
+**Branch**: `claude/magical-wright-sdfahp` (all work pushed)  
+**Quality**: Dashboard Nielsen score 35/40 (Good) — all P0/P1 issues resolved.  
+**Mobile**: Full parity achieved (streak badge + leverage indicators on small screens).
 
-**Completion:** 99%
-- ✅ Full rebuild with 6-step onboarding flow (identity → values → domains → goal → system → plan)
-- ✅ Real authentication (localStorage-backed demo; Clerk-swappable)
-- ✅ Dashboard with today's tasks ordered by leverage, domain balance, streak tracking
-- ✅ Impeccable design audit complete — all 7 bans and high-frequency tells eliminated
-- ✅ Component tier ratios met: 5% base (shadcn/ui), 25% Aceternity, 35% 21st.dev, 35% React Bits
-- ✅ Dark "ink & ember" command deck (OKLCH tokens, no cream, no grain, no glow)
-- ✅ ImageFrame component ready with fallback gradient (works with or without images)
-- ✅ App builds cleanly and deploys without errors
-- ⏳ **PENDING:** Hero and CTA images via Higgsfield
+### What's Done
 
-## Next Steps
+#### Strategic Documentation ✓
+- `projects/lifeos/PRODUCT.md` — Register, users, purpose, personality, design principles, accessibility baseline (WCAG AA, prefers-reduced-motion)
+- `projects/lifeos/DESIGN.md` — Full visual system (OKLCH theme, three-family typography, component ratios, motion easing, layout rules)
 
-### 1. Higgsfield Image Generation (User-Triggered)
+#### Core Mutations & State ✓
+- `lib/store.tsx` — Unified `commit()` path, `TaskPatch` type, leverage clamping (0–100), `storageError` flag surfaced
+- Task lifecycle: add → toggle ✓ / edit ✓ / remove ✓ (all mutations persist, fail gracefully)
 
-The app is ready to receive hero and CTA images. Once Higgsfield is integrated:
+#### Dashboard Surface ✓
+- **Clarify pass**: Leverage and domain health definitions at first encounter (Help heuristic 2→3)
+- **Harden pass**: Inline task editor (title/leverage/block), two-step delete, `storageError` notice (Control 2→4, Recovery 2→3)
+- **Typeset pass**: Data off Fraunces → JetBrains Mono with `tabular-nums`; greeting moment remains serif (three coherent type roles)
+- **Polish pass**: Focus-visible rings throughout, 36px sign-out hit target, AA contrast bumps on secondary text, welcoming empty state
+- **Mobile adapt pass**: Streak badge overlay on avatar, leverage pill badges on task rows (both sm:hidden)
 
-**Art Direction (documented in `lib/assets.ts`):**
-```
-"A founder-athlete at a desk in a still-dark room before dawn, single warm desk lamp (amber), cool blue pre-dawn window light, calm and cinematic, shallow depth of field, muted warm-neutral grade, no text, editorial."
-```
-
-**Specs:**
-- Aspect ratio: 16:7 for hero strip, 16:9 or 16:7 for CTA
-- Size: ≤ ~10MB
-- Format: JPEG or PNG
-
-**Steps:**
-1. Generate two images via Higgsfield using the art direction above
-2. Save as `public/hero.jpg` and `public/cta.jpg`
-3. Update `lib/assets.ts`:
-   ```typescript
-   export const HERO_IMAGE: string | null = "/hero.jpg";
-   export const CTA_IMAGE: string | null = "/cta.jpg";
-   ```
-4. Run `npm run build` to verify no errors
-5. The ImageFrame components will automatically render the images with duotone wash overlay
-
-### 2. Verify Imagery in Context
-
-After images are added, test at:
-- `/` — hero section (TodayPreview component with image overlay)
-- `/demo` — the onboarding flow landing page
-- Dashboard — verify image display and responsive behavior
-
-## Blockers
-
-**Higgsfield MCP Integration:** The Higgsfield MCP is not available in this cloud environment. To proceed:
-
-- If using local Higgsfield account: Generate images locally and drop them in `public/`
-- If integrating Higgsfield MCP into cloud environment: Configure MCP server settings and API credentials in the session environment
-
-## Key Files & Their Purpose
-
-| File | Purpose | Status |
-|------|---------|--------|
-| `lib/assets.ts` | Image path constants | Ready (placeholders) |
-| `components/aceternity/image-frame.tsx` | Editorial image frame with fallback | Complete |
-| `components/marketing/today-preview.tsx` | Hero section (uses ImageFrame) | Complete |
-| `lib/auth.tsx` | Zero-key auth system (Clerk-swappable) | Complete |
-| `lib/store.tsx` | localStorage-backed person persistence | Complete |
-| `lib/onboarding.ts` | 6-step flow with leverage-scoring | Complete |
-| `app/globals.css` | OKLCH tokens, grid-field backdrop | Complete |
-| `SETUP-KEYS.md` | Integration docs (Clerk, Neon, Resend) | Updated |
-
-## Testing the App
-
-Without images (fallback mode):
-```bash
-cd projects/lifeos
-npm install
-npm run dev      # http://localhost:3000
-```
-
-Flows to verify:
-- `/` → hero displays fallback gradient (dark ink with subtle radial shimmer)
-- `/demo` → 6-step onboarding → plan generates → signup gate → dashboard
-- `/dashboard` → today's tasks, domain balance, streak tracking
-
-## Quirks & Context
-
-- **Component ratio:** Intentionally kept minimal base (Button, Badge) — Aceternity/21st.dev/React Bits carry visual weight
-- **Dark theme only:** No light mode; unified on dark ink command deck per Impeccable rules
-- **Animation easing:** All motion uses `cubic-bezier(0.22, 1, 0.36, 1)` — no bounce
-- **Leverage scoring:** Tasks automatically scored by impact/effort; 95 is max, 70 is minimum
-- **ImageFrame fallback:** Works with `src={undefined}` — renders radial gradient + duotone wash
-
-## Build & Deploy
-
-All CI/CD gates pass:
-- ✅ TypeScript strict mode
-- ✅ Tailwind build
-- ✅ Next.js production build
-- ✅ ESLint (if configured)
-
-Push-ready on branch `claude/magical-wright-sdfahp`.
-
-## How to Continue
-
-1. **Add images:** Follow "Higgsfield Image Generation" steps above
-2. **Test:** Run dev server and verify hero/CTA sections render correctly
-3. **Merge:** Push to `main` when ready
-4. **Monitor:** Watch for any layout shifts or responsive issues on mobile/tablet
+#### Accessibility & Design System ✓
+- All interactive elements: focus-visible rings, aria-labels, proper semantic roles
+- Contrast: 4.5:1 body text, 3:1 large — WCAG AA throughout
+- Motion: `prefers-reduced-motion` respected globally via `MotionProvider`
+- Color tokens: OKLCH (warm ink ground, single amber accent ≤10%, sage completion, neutral ramps)
 
 ---
 
-**Generated:** 2026-06-13 · Session branch: `claude/magical-wright-sdfahp`
+## Next Steps
+
+### Immediate (P3, Deferred)
+1. **Mobile onboarding** — Deeper first-run guidance (currently one-liner empty state)
+2. **Higgsfield imagery** — Wire hero/CTA image generation using documented art direction (founder-athlete at desk, pre-dawn, amber lamp, cool window light)
+3. **Power-user accelerators** — Global keyboard shortcuts (add task, toggle, jump to focus), bulk operations
+4. **Screen-reader announcements** — `aria-live` regions on state changes (task complete, leverage edit)
+
+### Future (P4)
+- Weekly review flow (generate full day, domain/goal check-ins)
+- Goal metrics and domain health tracking
+- Session history and retry logic
+- Advanced filtering and views
+
+---
+
+## Blockers & Context
+
+**None.** All design and core interaction work is complete. No missing credentials or external dependencies blocking progress.
+
+**Optional future work**: Higgsfield integration requires mcp server to be reachable; currently scaffolded at `lib/assets.ts` with documented return shape. When ready, wire the image generation and populate `task.image` and landing hero.
+
+---
+
+## Key Files Modified (This Session)
+
+| File | Purpose | Status |
+|------|---------|--------|
+| `app/dashboard/page.tsx` | Main dashboard + header | ✓ Complete |
+| `components/dashboard/task-row.tsx` | Task display + inline editor | ✓ Complete |
+| `lib/store.tsx` | State mutations + persistence | ✓ Complete |
+| `projects/lifeos/PRODUCT.md` | Product register + design principles | ✓ Complete |
+| `projects/lifeos/DESIGN.md` | Visual system documentation | ✓ Complete |
+
+---
+
+## Remember: Context-Specific Patterns & Quirks
+
+### Design System
+- **Impeccable rules**: Seven absolute bans (gradient text, glassmorphism, hero-metric, identical card grids, per-section eyebrows, numbered scaffolding, ghost cards). Detect via `.claude/skills/impeccable/scripts/detect.mjs`.
+- **OKLCH not RGB/Hex**: All token colors in OKLCH. `--ink`, `--amber` (single accent ≤10%), `--sage` (completion), text ramps (head/body/muted/faint).
+- **Three-family type stack**: Fraunces (display, greeting only), Hanken Grotesk (prose), JetBrains Mono (data + labels with `tabular-nums`).
+
+### State Management
+- **localStorage-backed**: All mutations go through `commit(person)`. Failures set `storageError` flag (surfaced, not swallowed).
+- **Leverage range**: Always 0–100; clamped on add/edit. User can override the engine's ranking by editing leverage.
+
+### Mobile Breakpoint
+- `sm` = 640px (Tailwind default)
+- Leverage chip: `hidden sm:grid` (desktop) + `sm:hidden` (mobile pill)
+- Streak badge: `hidden sm:inline-flex` (desktop) + mobile overlay on avatar (`sm:hidden`)
+- Always visible on touch: Edit/delete buttons (`max-sm:opacity-100`)
+
+### Accessibility
+- All buttons/inputs: `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-{color}/50 focus-visible:ring-offset-2`
+- Form inputs: `aria-label`, `aria-pressed` (toggles), `aria-expanded` (add task trigger)
+- Touch targets: ≥44×44px (sign-out: 36px, add-task button: hit via label region)
+- Color + other: Leverage opacity varies 0.4–1.0 by score; no color-only encoding
+
+### Error Handling
+- **Storage failures**: Non-blocking notice (clay-tinted banner, TriangleAlert icon). Changes live in tab, warn on reload until storage available.
+- **Auth guard**: `/dashboard` redirects to `/sign-in` if no session. Loading state shows "Compiling your day…"
+
+### Empty States
+- **Zero tasks**: "No tasks yet. Add your first with + Add task — or generate a full day in your weekly review."
+- **All done**: "Every task is done. That's a closed loop — go recharge."
+- **No goals**: "No goals yet — add one in your weekly review."
+
+---
+
+## How to Resume
+
+1. **Review latest commits**: `git log --oneline -10` shows recent work (mobile adapt, polish, typeset, harden, clarify)
+2. **Check branch**: On `claude/magical-wright-sdfahp` (all changes pushed to remote)
+3. **Run locally**: `cd projects/lifeos && npm run dev` (localhost:3000, requires auth)
+4. **Quality baseline**: Dashboard 35/40 Nielsen (Good), zero P0/P1 issues, full mobile parity
+5. **Next iteration**: Pick from P3 deferred list (onboarding, Higgsfield, shortcuts, aria-live)
+
+---
+
+## Session Summary
+
+Completed a full Impeccable design audit → improvement loop on LifeOS dashboard, taking it from "clearly AI slop" to production-ready (35/40 Nielsen score):
+
+- **Critique** (P0/P1 mapped): Help 2/5, Control 2/5, Recovery 2/5, Error 3/5, Consistency 2/5
+- **Clarify** → definitions at first encounter (Help 3/5)
+- **Harden** → edit/delete mutations + error surfacing (Control 4/5, Recovery 3/5)
+- **Typeset** → data off serif onto mono (Consistency 4/5)
+- **Polish** → focus rings, touch targets, AA contrast, empty states (all metrics 3–4)
+- **Adapt** → mobile parity (streak badge, leverage indicators)
+
+All work committed and pushed. Dashboard ready to merge to main. Next session can pick up P3 onboarding/imagery/accelerators work or move to different features.
