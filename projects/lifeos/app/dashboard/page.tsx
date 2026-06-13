@@ -38,7 +38,7 @@ export default function DashboardPage() {
     return (
       <main className="grid min-h-screen place-items-center bg-ink">
         <div className="flex items-center gap-2 font-mono text-sm text-muted">
-          <Sparkles className="h-4 w-4 animate-pulse text-amber" /> Loading your day…
+          <Sparkles className="h-4 w-4 animate-pulse text-amber" /> Compiling your day…
         </div>
       </main>
     );
@@ -123,16 +123,23 @@ export default function DashboardPage() {
         <div className="grid gap-5 lg:grid-cols-[1.6fr_1fr]">
           {/* tasks */}
           <Panel
-            title="Today's Engine · ordered by leverage"
+            title="Today's Engine"
             action={
               <button
                 onClick={() => setAdding((s) => !s)}
                 className="inline-flex items-center gap-1.5 font-mono text-xs text-muted transition-colors hover:text-amber cursor-pointer"
               >
-                <Plus className="h-3.5 w-3.5" /> Add
+                <Plus className="h-3.5 w-3.5" /> Add task
               </button>
             }
           >
+            {/* Define the one concept the engine rests on, once, in plain words. */}
+            <p className="-mt-1 mb-4 text-[0.8rem] leading-relaxed text-muted text-pretty">
+              Each task is scored{" "}
+              <span className="text-body">0–100 by leverage</span> — how much it
+              moves your goals. The highest-leverage move runs first.
+            </p>
+
             <AnimatePresence>
               {adding && (
                 <QuickAdd
@@ -176,6 +183,10 @@ export default function DashboardPage() {
           {/* side column */}
           <div className="space-y-5">
             <Panel title="Domain balance">
+              <p className="-mt-1 mb-4 text-[0.8rem] leading-relaxed text-muted text-pretty">
+                Your own check-in on each area of life, 0–100. Aim for balance,
+                not a perfect score everywhere.
+              </p>
               <DomainBalance domains={person.domains} />
             </Panel>
 

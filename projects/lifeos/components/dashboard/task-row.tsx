@@ -55,7 +55,8 @@ export function TaskRow({
                 opacity: 0.4 + (task.leverage / 100) * 0.6,
               }
         }
-        title={`Leverage ${task.leverage}`}
+        title={`Leverage ${task.leverage} of 100 — its impact on your goals. Higher runs first.`}
+        aria-label={`Leverage ${task.leverage} of 100`}
       >
         {task.leverage}
       </span>
