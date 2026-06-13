@@ -187,7 +187,7 @@ function TaskEditor({
         className="w-full bg-transparent text-sm text-head outline-none placeholder:text-faint"
       />
       <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-        <label className="flex items-center gap-1.5 rounded-full border border-hairline px-2.5 py-1 font-mono text-[0.62rem] uppercase tracking-wider text-muted">
+        <label className="flex items-center gap-1.5 rounded-full border border-hairline px-2.5 py-1 font-mono text-[0.62rem] uppercase tracking-wider text-muted focus-within:border-amber/60">
           Lev
           <input
             type="number"
@@ -207,8 +207,9 @@ function TaskEditor({
           <button
             key={b}
             onClick={() => setBlock(b)}
+            aria-pressed={block === b}
             className={cn(
-              "rounded-full border px-2.5 py-1 font-mono text-[0.62rem] uppercase tracking-wider transition-colors cursor-pointer",
+              "rounded-full border px-2.5 py-1 font-mono text-[0.62rem] uppercase tracking-wider transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber/50",
               block === b
                 ? "border-amber bg-amber/10 text-amber"
                 : "border-hairline text-muted hover:text-body",

@@ -65,16 +65,17 @@ export default function DashboardPage() {
             <Badge tone="amber" className="hidden sm:inline-flex">
               <Flame className="h-3 w-3" /> {person.streak} day streak
             </Badge>
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-1.5">
               <div className="grid h-8 w-8 place-items-center rounded-full bg-amber/15 font-mono text-xs font-semibold text-amber">
                 {user.name.slice(0, 1).toUpperCase()}
               </div>
+              <span className="mx-1 h-5 w-px bg-hairline" aria-hidden />
               <button
                 onClick={() => {
                   signOut();
                   router.replace("/");
                 }}
-                className="text-muted transition-colors hover:text-clay cursor-pointer"
+                className="grid h-9 w-9 place-items-center rounded-md text-muted transition-colors hover:bg-clay/10 hover:text-clay cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay/50 focus-visible:ring-offset-2 focus-visible:ring-offset-ink"
                 aria-label="Sign out"
                 title="Sign out"
               >
@@ -150,7 +151,8 @@ export default function DashboardPage() {
             action={
               <button
                 onClick={() => setAdding((s) => !s)}
-                className="inline-flex items-center gap-1.5 font-mono text-xs text-muted transition-colors hover:text-amber cursor-pointer"
+                aria-expanded={adding}
+                className="inline-flex items-center gap-1.5 rounded-sm px-1.5 py-1 font-mono text-xs text-muted transition-colors hover:text-amber cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber/50"
               >
                 <Plus className="h-3.5 w-3.5" /> Add task
               </button>
@@ -196,6 +198,14 @@ export default function DashboardPage() {
               </AnimatePresence>
             </div>
 
+            {today.total === 0 && (
+              <p className="py-6 text-center text-sm text-muted text-pretty">
+                No tasks yet. Add your first with{" "}
+                <span className="text-body">+ Add task</span> — or generate a
+                full day in your weekly review.
+              </p>
+            )}
+
             {today.total > 0 && (
               <div className="mt-5 flex items-center justify-between border-t border-hairline pt-4">
                 <span className="font-mono text-xs text-muted">
@@ -239,7 +249,7 @@ export default function DashboardPage() {
                         transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }}
                       />
                     </div>
-                    <p className="mt-1 font-mono text-[0.66rem] uppercase tracking-wider text-faint">
+                    <p className="mt-1 font-mono text-[0.66rem] uppercase tracking-wider text-muted">
                       {DOMAIN_META[g.domain].name} · {g.metric}
                     </p>
                   </div>
@@ -296,14 +306,16 @@ function QuickAdd({
             if (e.key === "Escape") onCancel();
           }}
           placeholder="What needs doing? (Enter to add)"
-          className="w-full bg-transparent text-sm text-head outline-none placeholder:text-faint"
+          aria-label="Task title"
+          className="w-full bg-transparent text-sm text-head outline-none placeholder:text-muted"
         />
         <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
           {(Object.keys(BLOCK_META) as TaskBlock[]).map((b) => (
             <button
               key={b}
               onClick={() => setBlock(b)}
-              className={`rounded-full border px-2.5 py-1 font-mono text-[0.62rem] uppercase tracking-wider transition-colors cursor-pointer ${
+              aria-pressed={block === b}
+              className={`rounded-full border px-2.5 py-1 font-mono text-[0.62rem] uppercase tracking-wider transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber/50 ${
                 block === b
                   ? "border-amber bg-amber/10 text-amber"
                   : "border-hairline text-muted hover:text-body"
