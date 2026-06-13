@@ -15,7 +15,7 @@ export function Panel({
   return (
     <section
       className={cn(
-        "rounded-lg border border-hairline bg-paper-raised p-5 sm:p-6",
+        "rounded-lg border border-hairline bg-ink-raised p-5 sm:p-6",
         className,
       )}
     >

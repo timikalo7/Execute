@@ -17,7 +17,7 @@ const button = cva(
         secondary:
           "bg-transparent text-[var(--text-head)] border border-hairline-strong hover:border-amber/70 hover:-translate-y-[1px]",
         ghost:
-          "bg-transparent text-[var(--text-body)] hover:bg-[var(--paper-sunk)]",
+          "bg-transparent text-[var(--text-body)] hover:bg-[var(--ink-deep)]",
         sage: "bg-sage text-white hover:bg-sage-deep hover:-translate-y-[1px]",
       },
       size: {

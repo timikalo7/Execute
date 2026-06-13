@@ -16,7 +16,6 @@ import {
 } from "@/lib/onboarding";
 import { BLOCK_META, DOMAIN_META } from "@/lib/types";
 import { Button } from "@/components/base/button";
-import { SplitText } from "@/components/reactbits/split-text";
 import { cn } from "@/lib/utils";
 
 type StepId =

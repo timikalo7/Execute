@@ -9,8 +9,6 @@ import { useAuth } from "@/lib/auth";
 import { useStore } from "@/lib/store";
 import { Wordmark } from "@/components/brand";
 import { Button } from "@/components/base/button";
-import { AuroraBackground } from "@/components/aceternity/aurora-background";
-import { DotGrid } from "@/components/reactbits/dot-grid";
 
 export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
   const router = useRouter();
@@ -31,18 +29,14 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
   };
 
   return (
-    <main className="dark relative grid min-h-screen place-items-center overflow-hidden bg-ink px-5">
-      <div className="grain absolute inset-0" />
-      <AuroraBackground className="absolute inset-0" />
-      <div className="pointer-events-none absolute inset-0 opacity-60">
-        <DotGrid className="h-full w-full" />
-      </div>
+    <main className="relative grid min-h-screen place-items-center overflow-hidden bg-ink px-5">
+      <div className="grid-field pointer-events-none absolute inset-x-0 top-0 h-[50vh]" aria-hidden />
 
       <motion.div
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-        className="relative w-full max-w-md rounded-lg border border-hairline bg-ink-raised/80 p-8 backdrop-blur-sm sm:p-10"
+        className="relative w-full max-w-md rounded-lg border border-hairline-strong bg-ink-raised p-8 sm:p-10"
       >
         <Wordmark className="mb-8" />
         <p className="eyebrow mb-3">{isSignUp ? "Create account" : "Welcome back"}</p>

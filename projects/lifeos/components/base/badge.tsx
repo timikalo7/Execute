@@ -6,9 +6,9 @@ type Tone = "neutral" | "amber" | "sage" | "live";
 
 const tones: Record<Tone, string> = {
   neutral: "border-hairline-strong text-[var(--text-muted)]",
-  amber: "border-amber/40 text-amber-deep bg-amber/[0.06]",
-  sage: "border-sage/40 text-sage-deep bg-sage/[0.06]",
-  live: "border-sage/50 text-sage-deep",
+  amber: "border-amber/40 text-amber bg-amber/[0.06]",
+  sage: "border-sage/40 text-sage bg-sage/[0.06]",
+  live: "border-sage/50 text-sage",
 };
 
 export function Badge({

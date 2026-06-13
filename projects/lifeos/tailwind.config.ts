@@ -18,12 +18,6 @@ const config: Config = {
           graphite: "var(--ink-graphite)",
           graphite2: "var(--ink-graphite-2)",
         },
-        // Warm paper — never pure white
-        paper: {
-          DEFAULT: "var(--paper)",
-          raised: "var(--paper-raised)",
-          sunk: "var(--paper-sunk)",
-        },
         // Amber — focus, priority, the golden-hour accent
         amber: {
           DEFAULT: "var(--amber)",
@@ -51,9 +45,6 @@ const config: Config = {
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],
         mono: ["var(--font-mono)", "ui-monospace", "monospace"],
       },
-      letterSpacing: {
-        eyebrow: "0.2em",
-      },
       borderRadius: {
         xs: "2px",
         sm: "4px",
@@ -77,26 +68,10 @@ const config: Config = {
           "0%": { transform: "translateX(0)" },
           "100%": { transform: "translateX(-50%)" },
         },
-        shimmer: {
-          "0%": { backgroundPosition: "200% 0" },
-          "100%": { backgroundPosition: "-200% 0" },
-        },
-        "spin-slow": {
-          "0%": { transform: "rotate(0deg)" },
-          "100%": { transform: "rotate(360deg)" },
-        },
-        aurora: {
-          "0%": { backgroundPosition: "0% 50%" },
-          "50%": { backgroundPosition: "100% 50%" },
-          "100%": { backgroundPosition: "0% 50%" },
-        },
       },
       animation: {
         "fade-up": "fade-up 0.7s cubic-bezier(0.22,1,0.36,1) forwards",
-        marquee: "marquee 40s linear infinite",
-        shimmer: "shimmer 2.4s linear infinite",
-        "spin-slow": "spin-slow 14s linear infinite",
-        aurora: "aurora 18s ease infinite",
+        marquee: "marquee 42s linear infinite",
       },
     },
   },

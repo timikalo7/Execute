@@ -10,7 +10,7 @@ export function DomainBalance({ domains }: { domains: Domain[] }) {
       {domains.map((d, i) => (
         <div key={d.key} className="flex items-center gap-3">
           <span className="w-24 shrink-0 truncate text-sm text-body">{d.name}</span>
-          <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-paper-sunk">
+          <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-ink-deep">
             <motion.div
               className="absolute inset-y-0 left-0 rounded-full"
               style={{ background: DOMAIN_META[d.key].tint }}

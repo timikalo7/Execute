@@ -9,18 +9,15 @@ import { Footer } from "@/components/marketing/footer";
 
 export default function LandingPage() {
   return (
-    <div className="dark relative min-h-screen overflow-x-hidden bg-ink text-body">
-      <div className="grain pointer-events-none fixed inset-0 z-0" />
-      <div className="relative z-10">
-        <Nav />
-        <Hero />
-        <Proof />
-        <ModelFlow />
-        <Features />
-        <How />
-        <CTA />
-        <Footer />
-      </div>
+    <div className="relative min-h-screen overflow-x-hidden bg-ink text-body">
+      <Nav />
+      <Hero />
+      <Proof />
+      <ModelFlow />
+      <Features />
+      <How />
+      <CTA />
+      <Footer />
     </div>
   );
 }

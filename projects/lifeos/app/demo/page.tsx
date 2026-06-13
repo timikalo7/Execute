@@ -12,7 +12,7 @@ import { useStore } from "@/lib/store";
 import { Wordmark } from "@/components/brand";
 import { Button } from "@/components/base/button";
 import { Badge } from "@/components/base/badge";
-import { AuroraBackground } from "@/components/aceternity/aurora-background";
+import { SplitText } from "@/components/reactbits/split-text";
 
 export default function DemoPage() {
   const router = useRouter();
@@ -32,9 +32,8 @@ export default function DemoPage() {
   };
 
   return (
-    <main className="dark relative min-h-screen overflow-hidden bg-ink">
-      <div className="grain absolute inset-0" />
-      <AuroraBackground className="absolute inset-0" />
+    <main className="relative min-h-screen overflow-hidden bg-ink">
+      <div className="grid-field pointer-events-none absolute inset-x-0 top-0 h-[40vh]" aria-hidden />
 
       <header className="relative mx-auto flex h-16 max-w-3xl items-center justify-between px-5">
         <Wordmark />
@@ -52,7 +51,7 @@ export default function DemoPage() {
             Live onboarding · no signup yet
           </Badge>
           <h1 className="font-display text-[2.2rem] font-light leading-tight text-head sm:text-[2.8rem]">
-            Build your LifeOS in 60 seconds.
+            <SplitText text="Build your LifeOS in 60 seconds." />
           </h1>
           <p className="mx-auto mt-2 max-w-md text-[0.97rem] text-muted">
             This is the real onboarding — the same six steps every member walks.

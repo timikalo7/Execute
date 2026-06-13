@@ -26,7 +26,7 @@ export function ProgressRing({
           cy={size / 2}
           r={r}
           fill="none"
-          stroke="var(--paper-sunk)"
+          stroke="var(--ink-deep)"
           strokeWidth={stroke}
         />
         <motion.circle

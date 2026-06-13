@@ -36,7 +36,7 @@ export default function DashboardPage() {
 
   if (!authReady || !storeReady || !person || !user) {
     return (
-      <main className="grid min-h-screen place-items-center bg-paper">
+      <main className="grid min-h-screen place-items-center bg-ink">
         <div className="flex items-center gap-2 font-mono text-sm text-muted">
           <Sparkles className="h-4 w-4 animate-pulse text-amber" /> Loading your day…
         </div>
@@ -48,9 +48,9 @@ export default function DashboardPage() {
   const remaining = today.total - today.done;
 
   return (
-    <main className="min-h-screen bg-paper">
+    <main className="min-h-screen bg-ink">
       {/* top bar */}
-      <header className="sticky top-0 z-30 border-b border-hairline bg-paper/80 backdrop-blur-md">
+      <header className="sticky top-0 z-30 border-b border-hairline bg-ink/80 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-section items-center justify-between px-5 sm:px-8">
           <Wordmark />
           <div className="flex items-center gap-4">
@@ -58,7 +58,7 @@ export default function DashboardPage() {
               <Flame className="h-3 w-3" /> {person.streak} day streak
             </Badge>
             <div className="flex items-center gap-2.5">
-              <div className="grid h-8 w-8 place-items-center rounded-full bg-amber/15 font-mono text-xs font-semibold text-amber-deep">
+              <div className="grid h-8 w-8 place-items-center rounded-full bg-amber/15 font-mono text-xs font-semibold text-amber">
                 {user.name.slice(0, 1).toUpperCase()}
               </div>
               <button
@@ -101,7 +101,7 @@ export default function DashboardPage() {
               </p>
             ) : (
               <p className="mt-3 max-w-lg text-[1.02rem] text-body">
-                Every task is done. That’s a closed loop — go recharge. 🌿
+                Every task is done. That’s a closed loop — go recharge.
               </p>
             )}
           </div>
@@ -127,7 +127,7 @@ export default function DashboardPage() {
             action={
               <button
                 onClick={() => setAdding((s) => !s)}
-                className="inline-flex items-center gap-1.5 font-mono text-xs text-muted transition-colors hover:text-amber-deep cursor-pointer"
+                className="inline-flex items-center gap-1.5 font-mono text-xs text-muted transition-colors hover:text-amber cursor-pointer"
               >
                 <Plus className="h-3.5 w-3.5" /> Add
               </button>
@@ -185,12 +185,12 @@ export default function DashboardPage() {
                   <div key={g.id}>
                     <div className="mb-1.5 flex items-center justify-between gap-2">
                       <div className="flex min-w-0 items-center gap-2">
-                        <Target className="h-3.5 w-3.5 shrink-0 text-amber-deep" />
+                        <Target className="h-3.5 w-3.5 shrink-0 text-amber" />
                         <span className="truncate text-sm text-head">{g.title}</span>
                       </div>
                       <span className="font-mono text-xs text-muted">{g.progress}%</span>
                     </div>
-                    <div className="h-1.5 overflow-hidden rounded-full bg-paper-sunk">
+                    <div className="h-1.5 overflow-hidden rounded-full bg-ink-deep">
                       <motion.div
                         className="h-full rounded-full bg-amber"
                         initial={{ width: 0 }}
@@ -263,7 +263,7 @@ function QuickAdd({
               onClick={() => setBlock(b)}
               className={`rounded-full border px-2.5 py-1 font-mono text-[0.62rem] uppercase tracking-wider transition-colors cursor-pointer ${
                 block === b
-                  ? "border-amber bg-amber/10 text-amber-deep"
+                  ? "border-amber bg-amber/10 text-amber"
                   : "border-hairline text-muted hover:text-body"
               }`}
             >

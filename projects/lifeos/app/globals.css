@@ -3,62 +3,47 @@
 @tailwind utilities;
 
 /*
-  LifeOS design tokens — neo-editorial, warm mineral.
-  OKLCH throughout. Never pure black, never pure white.
-  Amber = focus/priority. Sage = growth/done/live. Clay = warning (sparse).
+  LifeOS — "Ink & Ember" command deck.
+  Scene: pre-dawn, still-dark room, one calm authoritative screen.
+  Restrained commitment: warm near-black ink ground, neutral (chroma-0) text,
+  a single ember accent ≤10%, sage for completion only.
+  OKLCH throughout. Never pure black. No glow, no grain, no gradient text.
 */
 :root {
-  /* Light surface — warm paper, the dashboard ground */
-  --paper: oklch(97% 0.008 85);
-  --paper-raised: oklch(99% 0.006 85);
-  --paper-sunk: oklch(94% 0.01 84);
+  /* Ground — warm mineral ink, low chroma. Never pure black. */
+  --ink: oklch(16% 0.008 67);
+  --ink-deep: oklch(12% 0.006 65);
+  --ink-raised: oklch(20% 0.009 68);
+  --ink-graphite: oklch(27% 0.009 70);
+  --ink-graphite-2: oklch(34% 0.009 72);
 
-  /* Dark ground — warm mineral ink, the marketing ground */
-  --ink: oklch(18% 0.012 70);
-  --ink-deep: oklch(13% 0.01 68);
-  --ink-raised: oklch(22% 0.013 72);
-  --ink-graphite: oklch(28% 0.012 74);
-  --ink-graphite-2: oklch(34% 0.012 76);
+  /* Ember — the single committed accent. Focus, priority, the live mark. */
+  --amber: oklch(78% 0.135 64);
+  --amber-rich: oklch(72% 0.145 56);
+  --amber-deep: oklch(60% 0.13 52);
+  --amber-pale: oklch(88% 0.075 72);
 
-  /* Amber — the golden-hour focus accent */
-  --amber: oklch(80% 0.13 72);
-  --amber-rich: oklch(74% 0.14 66);
-  --amber-deep: oklch(58% 0.12 60);
-  --amber-pale: oklch(90% 0.07 78);
+  /* Sage — completion / live only. Muted, never neon. */
+  --sage: oklch(66% 0.075 158);
+  --sage-deep: oklch(52% 0.075 160);
+  --sage-pale: oklch(84% 0.05 154);
 
-  /* Sage — muted evergreen, growth + completion */
-  --sage: oklch(62% 0.07 155);
-  --sage-deep: oklch(48% 0.07 158);
-  --sage-pale: oklch(86% 0.05 152);
+  /* Clay — destructive only, sparingly. */
+  --clay: oklch(62% 0.16 36);
 
-  /* Clay — vermilion warning, sparingly */
-  --clay: oklch(58% 0.15 38);
+  /* Text — neutral, zero chroma, on ink. WCAG AA against --ink. */
+  --text-head: oklch(96% 0 0); /* ~15:1 */
+  --text-body: oklch(86% 0 0); /* ~10:1 */
+  --text-muted: oklch(68% 0 0); /* ~4.8:1 */
+  --text-faint: oklch(56% 0 0); /* labels/large only */
 
-  /* Text tiers — neutral, no warmth, on light paper */
-  --text-head: oklch(24% 0.01 70);
-  --text-body: oklch(34% 0.008 70);
-  --text-muted: oklch(50% 0.006 70);
-  --text-faint: oklch(62% 0.005 70);
-
-  --hairline: oklch(24% 0.01 70 / 0.14);
-  --hairline-strong: oklch(24% 0.01 70 / 0.28);
-
-  --bg: var(--paper);
-  --fg: var(--text-body);
-}
-
-/* Dark context (marketing hero, demo, any .dark subtree) */
-.dark {
-  --text-head: oklch(95% 0 0);
-  --text-body: oklch(88% 0 0);
-  --text-muted: oklch(72% 0 0);
-  --text-faint: oklch(60% 0 0);
-
-  --hairline: oklch(90% 0 0 / 0.12);
-  --hairline-strong: oklch(90% 0 0 / 0.24);
+  --hairline: oklch(96% 0 0 / 0.1);
+  --hairline-strong: oklch(96% 0 0 / 0.2);
 
   --bg: var(--ink);
   --fg: var(--text-body);
+
+  color-scheme: dark;
 }
 
 * {
@@ -74,37 +59,59 @@ body {
   background: var(--bg);
   color: var(--fg);
   font-family: var(--font-sans), system-ui, sans-serif;
-  font-feature-settings: "ss01", "cv01";
-}
-
-::selection {
-  background: var(--amber-pale);
-  color: var(--ink-deep);
-}
-
-/* Editorial defaults */
-.font-display {
   font-feature-settings: "ss01";
 }
 
-/* Eyebrow / tracked label — short only */
-.eyebrow {
+/* Headings: balance wrapping, tracking floor. */
+h1, h2, h3 {
+  text-wrap: balance;
+}
+p {
+  text-wrap: pretty;
+}
+
+::selection {
+  background: var(--amber);
+  color: var(--ink-deep);
+}
+
+/* One deliberate kicker — used ONCE on the landing hero, not per section. */
+.kicker {
   font-family: var(--font-mono), monospace;
   font-size: 0.7rem;
   font-weight: 500;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--amber);
+}
+
+/* Functional micro-label — for form fields, panel headers, data captions.
+   NOT a decorative section eyebrow (those are banned and removed). */
+.eyebrow {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.66rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
 
-/* Hairline-first divider */
 .rule {
   height: 1px;
   background: var(--hairline);
   border: 0;
 }
 
-/* Thin custom scrollbar */
+/* Fine structural grid — replaces the banned glow/grain backdrops. */
+.grid-field {
+  background-image:
+    linear-gradient(var(--hairline) 1px, transparent 1px),
+    linear-gradient(90deg, var(--hairline) 1px, transparent 1px);
+  background-size: 64px 64px;
+  -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 30%, transparent 75%);
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 30%, transparent 75%);
+}
+
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -117,20 +124,13 @@ body {
   background: transparent;
 }
 
-/* Staggered reveal helper (primary -> secondary -> supporting, 15-25% delay) */
-@media (prefers-reduced-motion: no-preference) {
-  .reveal {
-    opacity: 0;
-    animation: fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+/* Reveals must enhance an already-visible default and respect reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
   }
-}
-
-/* Grain — subtle, brand-bearing texture only, very low opacity */
-.grain::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0.035;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }

@@ -25,7 +25,7 @@ export function TaskRow({
         "group flex items-center gap-4 rounded-md border px-4 py-3.5 transition-all duration-200 ease-ks",
         task.done
           ? "border-transparent bg-transparent"
-          : "border-hairline bg-paper-raised hover:border-hairline-strong hover:-translate-y-[1px]",
+          : "border-hairline bg-ink-raised hover:border-hairline-strong hover:-translate-y-[1px]",
       )}
     >
       <button
@@ -49,7 +49,7 @@ export function TaskRow({
         )}
         style={
           task.done
-            ? { background: "var(--paper-sunk)" }
+            ? { background: "var(--ink-deep)" }
             : {
                 background: "var(--amber)",
                 opacity: 0.4 + (task.leverage / 100) * 0.6,
