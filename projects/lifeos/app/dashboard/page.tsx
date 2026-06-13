@@ -68,7 +68,7 @@ export default function DashboardPage() {
             <div className="flex items-center gap-1.5">
               <div className="relative grid h-8 w-8 place-items-center rounded-full bg-amber/15 font-mono text-xs font-semibold text-amber">
                 {user.name.slice(0, 1).toUpperCase()}
-                <div className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber text-[0.5rem] font-bold text-ink sm:hidden">
+                <div className="absolute -right-0.5 -top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-amber text-[0.6rem] font-bold text-ink sm:hidden">
                   {person.streak}
                 </div>
               </div>
