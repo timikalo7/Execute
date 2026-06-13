@@ -61,3 +61,14 @@ Choose the stack **only from the tool library in execute.md (Part 4)** — per p
 ## UI rules
 
 Build interfaces **only** from the UI libraries listed in execute.md §4.2, in the composition ratio: **10%** base (shadcn/ui), **30%** advanced animated (Aceternity UI), **30%** premium micro-interactions (21st.dev), **30%** experimental effects (React Bits). Icons via Lucide, animation via Framer Motion (+ anime.js). Respect the web/mobile split — mobile uses the listed mobile libraries. Do not pull in styling tools that aren't in the library.
+
+## Context handoff
+
+When nearing the end of the context window (within ~20k tokens of the limit), create a `HANDOFF.md` file at the project root with:
+- **Current status** — what phase/milestone we're in, what's done vs. pending
+- **Next steps** — the immediate task(s) to resume
+- **Blockers** — any missing credentials, ambiguous decisions, or external dependencies
+- **Key files** — files modified this session, their purpose, and critical state
+- **Remember** — any context-specific patterns, quirks, or gotchas that the next session needs to know
+
+Commit and push the handoff file before the session ends. The next session will read it before continuing.
