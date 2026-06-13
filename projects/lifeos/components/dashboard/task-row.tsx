@@ -68,7 +68,7 @@ export function TaskRow({
         <Check className="h-3.5 w-3.5" strokeWidth={3} />
       </button>
 
-      {/* leverage chip */}
+      {/* leverage chip — desktop 8×8 grid, mobile compact inline */}
       <span
         className={cn(
           "hidden h-8 w-8 shrink-0 place-items-center rounded-md font-mono text-[0.7rem] font-semibold tabular-nums sm:grid",
@@ -84,6 +84,26 @@ export function TaskRow({
         }
         title={`Leverage ${task.leverage} of 100 — its impact on your goals. Higher runs first.`}
         aria-label={`Leverage ${task.leverage} of 100`}
+      >
+        {task.leverage}
+      </span>
+
+      {/* mobile leverage indicator */}
+      <span
+        className={cn(
+          "sm:hidden inline-flex h-5 shrink-0 items-center rounded px-1.5 font-mono text-[0.62rem] font-semibold tabular-nums",
+          task.done ? "text-faint" : "text-ink-deep",
+        )}
+        style={
+          task.done
+            ? { background: "var(--ink-deep)" }
+            : {
+                background: "var(--amber)",
+                opacity: 0.4 + (task.leverage / 100) * 0.6,
+              }
+        }
+        title={`Leverage ${task.leverage} of 100`}
+        aria-label={`Leverage ${task.leverage}`}
       >
         {task.leverage}
       </span>
