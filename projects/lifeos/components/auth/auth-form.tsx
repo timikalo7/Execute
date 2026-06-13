@@ -40,8 +40,16 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
       >
         <Wordmark className="mb-8" />
         <p className="eyebrow mb-3">{isSignUp ? "Create account" : "Welcome back"}</p>
-        <h1 className="font-display text-[2.1rem] font-light leading-tight text-head">
-          {isSignUp ? "Start your operating system." : "Resume your day."}
+        <h1 className="font-display text-[2.15rem] font-light leading-[1.06] tracking-[-0.015em] text-head">
+          {isSignUp ? (
+            <>
+              Start your <span className="italic">operating system</span>.
+            </>
+          ) : (
+            <>
+              Resume <span className="italic">your day</span>.
+            </>
+          )}
         </h1>
         <p className="mt-2 text-sm text-muted">
           {isSignUp

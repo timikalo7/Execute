@@ -19,13 +19,13 @@ export function Hero() {
           <p className="kicker mb-7">An operating system for a deliberate life</p>
 
           {/* Static, confident headline — no entrance gating, no gradient text. */}
-          <h1 className="font-display text-[3.1rem] font-light leading-[0.98] tracking-[-0.02em] text-head sm:text-[4.4rem]">
+          <h1 className="font-display text-[3.1rem] font-light leading-[0.98] tracking-[-0.025em] text-head sm:text-[4.4rem]">
             Most apps hold
             <br />
             your tasks.
             <span className="mt-2 block font-normal text-head">
               LifeOS runs
-              <span className="text-amber"> your life.</span>
+              <span className="italic text-amber"> your life.</span>
             </span>
           </h1>
 

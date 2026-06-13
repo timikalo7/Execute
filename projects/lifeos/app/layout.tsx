@@ -3,6 +3,7 @@ import "./globals.css";
 import { fontVars } from "@/lib/fonts";
 import { AuthProvider } from "@/lib/auth";
 import { StoreProvider } from "@/lib/store";
+import { MotionProvider } from "@/components/motion-provider";
 
 export const metadata: Metadata = {
   title: "LifeOS — the operating system for a deliberate life",
@@ -24,9 +25,11 @@ export default function RootLayout({
   return (
     <html lang="en" className={fontVars}>
       <body>
-        <AuthProvider>
-          <StoreProvider>{children}</StoreProvider>
-        </AuthProvider>
+        <MotionProvider>
+          <AuthProvider>
+            <StoreProvider>{children}</StoreProvider>
+          </AuthProvider>
+        </MotionProvider>
       </body>
     </html>
   );

@@ -27,12 +27,12 @@ type StepId =
   | "plan";
 
 const STEPS: { id: StepId; eyebrow: string; title: string; sub: string }[] = [
-  { id: "identity", eyebrow: "01 · Identity", title: "Who are you becoming?", sub: "Identity drives behavior. Pick the roles you're living into." },
-  { id: "values", eyebrow: "02 · Values", title: "What matters most?", sub: "Rank by tapping in order. When goals conflict, higher values win." },
-  { id: "domains", eyebrow: "03 · Domains", title: "Where does life happen?", sub: "Choose the areas LifeOS should keep in balance." },
-  { id: "goal", eyebrow: "04 · Goal", title: "Name one destination", sub: "A goal is a measurable outcome — not a wish." },
-  { id: "system", eyebrow: "05 · System", title: "The repeatable process", sub: "Goals need systems. What action, done consistently, gets you there?" },
-  { id: "plan", eyebrow: "06 · Daily Engine", title: "Today, generated", sub: "Your inputs become an executable plan. This is what you'll see every morning." },
+  { id: "identity", eyebrow: "Identity", title: "Who are you becoming?", sub: "Identity drives behavior. Pick the roles you're living into." },
+  { id: "values", eyebrow: "Values", title: "What matters most?", sub: "Rank by tapping in order. When goals conflict, higher values win." },
+  { id: "domains", eyebrow: "Domains", title: "Where does life happen?", sub: "Choose the areas LifeOS should keep in balance." },
+  { id: "goal", eyebrow: "Goal", title: "Name one destination", sub: "A goal is a measurable outcome — not a wish." },
+  { id: "system", eyebrow: "System", title: "The repeatable process", sub: "Goals need systems. What action, done consistently, gets you there?" },
+  { id: "plan", eyebrow: "Daily Engine", title: "Today, generated", sub: "Your inputs become an executable plan. This is what you'll see every morning." },
 ];
 
 export function OnboardingFlow({
@@ -105,11 +105,11 @@ export function OnboardingFlow({
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
           >
-            <p className="eyebrow mb-3">{current.eyebrow}</p>
-            <h3 className="font-display text-[1.9rem] font-light leading-[1.1] text-head sm:text-[2.4rem]">
+            <span className="eyebrow mb-3 block text-amber">{current.eyebrow}</span>
+            <h3 className="font-display text-[2rem] font-light leading-[1.08] tracking-[-0.015em] text-head sm:text-[2.55rem]">
               {current.title}
             </h3>
-            <p className="mt-2 max-w-xl text-[0.97rem] leading-relaxed text-muted">
+            <p className="mt-3 max-w-xl text-[1rem] leading-[1.65] text-muted text-pretty">
               {current.sub}
             </p>
 
@@ -173,9 +173,9 @@ export function OnboardingFlow({
           >
             <ArrowLeft className="h-4 w-4" /> Back
           </button>
-          <div className="flex items-center gap-3">
-            <span className="font-mono text-xs text-faint">
-              {step + 1} / {STEPS.length}
+          <div className="flex items-center gap-4">
+            <span className="hidden font-mono text-[0.66rem] uppercase tracking-[0.14em] text-faint sm:inline">
+              {isLast ? "Last step" : `Next · ${STEPS[step + 1].eyebrow}`}
             </span>
             <Button onClick={next} disabled={!canAdvance} size="md">
               {isLast ? (

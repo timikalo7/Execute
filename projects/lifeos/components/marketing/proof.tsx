@@ -21,9 +21,9 @@ export function Proof() {
           items={PRINCIPLES.map((p) => (
             <span
               key={p}
-              className="flex items-center gap-3 font-mono text-sm text-muted"
+              className="flex items-center gap-3.5 font-mono text-[0.82rem] tracking-tight text-muted"
             >
-              <span className="text-amber">✦</span> {p}
+              <span className="h-1 w-1 rounded-full bg-amber/70" aria-hidden /> {p}
             </span>
           ))}
         />

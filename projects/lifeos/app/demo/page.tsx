@@ -46,16 +46,16 @@ export default function DemoPage() {
       </header>
 
       <div className="relative mx-auto max-w-3xl px-5 pb-24 pt-6">
-        <div className="mb-7 text-center">
-          <Badge tone="live" dot className="mb-4">
+        <div className="mb-8 text-center">
+          <Badge tone="live" dot className="mb-5">
             Live onboarding · no signup yet
           </Badge>
-          <h1 className="font-display text-[2.2rem] font-light leading-tight text-head sm:text-[2.8rem]">
+          <h1 className="font-display text-[2.3rem] font-light leading-[1.04] tracking-[-0.015em] text-head sm:text-[2.9rem]">
             <SplitText text="Build your LifeOS in 60 seconds." />
           </h1>
-          <p className="mx-auto mt-2 max-w-md text-[0.97rem] text-muted">
-            This is the real onboarding — the same six steps every member walks.
-            Watch your inputs become an executable day.
+          <p className="mx-auto mt-3 max-w-[42ch] text-[1rem] leading-[1.6] text-muted text-pretty">
+            The same six steps every member walks — no demo shortcuts. Watch your
+            inputs compile into an executable day before you decide anything.
           </p>
         </div>
 

@@ -15,10 +15,11 @@ export function Features() {
   return (
     <section id="features" className="mx-auto max-w-section px-5 py-28 sm:px-8">
       <div className="mb-14 grid items-end gap-6 lg:grid-cols-12">
-        <h2 className="font-display text-[2.4rem] font-light leading-[1.05] tracking-[-0.01em] text-head sm:text-[3.2rem] lg:col-span-8">
-          Six engines. One loop that compounds.
+        <h2 className="font-display text-[2.3rem] font-light leading-[1.05] tracking-[-0.015em] text-head sm:text-[3rem] lg:col-span-7">
+          Six engines.
+          <br className="hidden sm:block" /> One loop that compounds.
         </h2>
-        <p className="text-[1.02rem] leading-relaxed text-muted lg:col-span-4">
+        <p className="text-[1.02rem] leading-relaxed text-muted text-pretty lg:col-span-4 lg:col-start-9">
           Each part feeds the next. Capture, distill, decide, execute, measure,
           reflect — then again, sharper.
         </p>
@@ -56,16 +57,19 @@ export function Features() {
         {/* decision engine — quote-led, no icon */}
         <BentoTile span={5} index={1} className="min-h-[280px]">
           <div className="flex h-full flex-col justify-between">
-            <p className="font-display text-[1.5rem] font-light leading-snug text-head">
-              “Score the choice, not your mood.”
+            <p className="font-display text-[1.7rem] font-light italic leading-[1.15] text-head text-balance">
+              Score the choice,
+              <br />
+              not your mood.
             </p>
             <div>
-              <p className="text-[0.96rem] leading-relaxed text-muted">
+              <p className="text-[0.96rem] leading-relaxed text-muted text-pretty">
                 The Decision Engine weighs any option against your values,
-                vision, impact, ROI, urgency, reversibility, and risk.
+                vision, impact, ROI, urgency, reversibility, and risk — then
+                tells you which way it leans.
               </p>
-              <p className="mt-3 font-mono text-[0.66rem] uppercase tracking-wider text-amber">
-                Decision Engine
+              <p className="mt-4 font-mono text-[0.66rem] uppercase tracking-[0.16em] text-faint">
+                The Decision Engine
               </p>
             </div>
           </div>
@@ -116,17 +120,15 @@ export function Features() {
 
         {/* AI layer — committed full-width strip */}
         <BentoTile span={12} index={5} className="bg-ink-deep">
-          <div className="flex flex-col items-start justify-between gap-5 sm:flex-row sm:items-center">
-            <div className="max-w-2xl">
-              <h3 className="font-display text-xl font-light text-head">
-                The reasoning layer sees everything — and reasons with you.
-              </h3>
-              <p className="mt-2 text-[0.96rem] leading-relaxed text-muted">
-                Identity, values, goals, systems, constraints. Not generic
-                advice. Your decisions, sharpened against your own context.
-              </p>
-            </div>
-            <span className="shrink-0 rounded-full border border-amber/40 px-3 py-1 font-mono text-[0.66rem] uppercase tracking-wider text-amber">
+          <div className="grid items-center gap-6 sm:grid-cols-[auto_1fr_auto] sm:gap-9">
+            <h3 className="font-display text-[1.5rem] font-light leading-[1.1] text-head sm:max-w-[14ch] sm:text-[1.7rem]">
+              The reasoning layer reasons with you.
+            </h3>
+            <p className="text-[0.96rem] leading-relaxed text-muted text-pretty sm:border-l sm:border-hairline-strong sm:pl-9">
+              Identity, values, goals, systems, constraints — all in scope. Not
+              generic advice. Your decisions, sharpened against your own context.
+            </p>
+            <span className="shrink-0 self-start rounded-full border border-amber/40 px-3 py-1 font-mono text-[0.66rem] uppercase tracking-[0.14em] text-amber sm:self-center">
               context-aware
             </span>
           </div>

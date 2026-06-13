@@ -10,10 +10,10 @@ export function ModelFlow() {
     <section id="model" className="relative mx-auto max-w-section px-5 py-28 sm:px-8">
       <div className="grid gap-12 lg:grid-cols-12 lg:gap-8">
         <div className="lg:col-span-7">
-          <h2 className="font-display text-[2.4rem] font-light leading-[1.05] tracking-[-0.01em] text-head sm:text-[3.2rem]">
+          <h2 className="font-display text-[2.6rem] font-light leading-[1.02] tracking-[-0.02em] text-head sm:text-[3.5rem]">
             It isn’t a notes app.
             <br />
-            It’s a compiler.
+            It’s a <span className="italic font-normal">compiler</span>.
           </h2>
           <ScrollReveal
             text="A universal framework meets your personal context. Each layer turns the one before it into something executable — until what comes out the other end is simply: do this, now, and here's why."
@@ -26,6 +26,15 @@ export function ModelFlow() {
           <ol className="relative">
             {CHAIN.map((c, i) => {
               const last = i === CHAIN.length - 1;
+              // type grows down the chain — each layer carries more weight,
+              // ending on the committed ember "Today".
+              const size = [
+                "text-[1.55rem] sm:text-[1.75rem]",
+                "text-[1.7rem] sm:text-[1.95rem]",
+                "text-[1.9rem] sm:text-[2.2rem]",
+                "text-[2.15rem] sm:text-[2.55rem]",
+                "text-[2.7rem] sm:text-[3.3rem]",
+              ][i];
               return (
                 <motion.li
                   key={c}
@@ -33,22 +42,23 @@ export function ModelFlow() {
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: true, margin: "-80px" }}
                   transition={{ delay: i * 0.09, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                  className="flex items-baseline gap-4 py-2"
+                  className="flex items-baseline gap-4 py-1.5"
                 >
                   <span
-                    className={`font-display leading-none tracking-[-0.02em] ${
-                      last
-                        ? "text-[2.6rem] font-normal text-amber sm:text-[3.2rem]"
-                        : "text-[1.8rem] font-light text-head sm:text-[2.1rem]"
+                    className={`font-display leading-none tracking-[-0.02em] ${size} ${
+                      last ? "font-normal text-amber" : "font-light text-head"
                     }`}
                   >
                     {c}
                   </span>
                   {!last && (
-                    <span className="flex-1 translate-y-[-0.4em] border-b border-dashed border-hairline-strong" />
+                    <span className="flex-1 translate-y-[-0.35em] border-b border-dashed border-hairline-strong" />
                   )}
-                  {!last && (
-                    <span className="font-mono text-xs text-faint">compiles to</span>
+                  {/* the "compiles to" verb stated once, as a legend, not on every row */}
+                  {i === 0 && (
+                    <span className="font-mono text-[0.66rem] uppercase tracking-[0.14em] text-faint">
+                      compiles to
+                    </span>
                   )}
                 </motion.li>
               );

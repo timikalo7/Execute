@@ -88,30 +88,30 @@ export default function DashboardPage() {
                 day: "numeric",
               })}
             </p>
-            <h1 className="font-display text-[2.4rem] font-light leading-[1.05] text-head sm:text-[3rem]">
+            <h1 className="font-display text-[2.4rem] font-light leading-[1.04] tracking-[-0.015em] text-head sm:text-[3rem]">
               {GREETING()}, {user.name.split(" ")[0]}.
             </h1>
             {today.focus ? (
-              <p className="mt-3 max-w-lg text-[1.02rem] leading-relaxed text-body">
+              <p className="mt-3 max-w-lg text-[1.04rem] leading-[1.6] text-body text-pretty">
                 Your highest-leverage move right now is{" "}
-                <span className="font-medium text-head">
-                  “{today.focus.title}”
+                <span className="font-medium italic text-head">
+                  {today.focus.title}
                 </span>{" "}
                 — {BLOCK_META[today.focus.block].hint.toLowerCase()}.
               </p>
             ) : (
-              <p className="mt-3 max-w-lg text-[1.02rem] text-body">
+              <p className="mt-3 max-w-lg text-[1.04rem] text-body text-pretty">
                 Every task is done. That’s a closed loop — go recharge.
               </p>
             )}
           </div>
-          <Panel className="flex items-center gap-5">
+          <Panel className="flex items-center gap-6">
             <ProgressRing
               value={pct}
               label={`${Math.round(pct * 100)}%`}
               sublabel="today"
             />
-            <div className="space-y-1.5 pr-2">
+            <div className="space-y-2 border-l border-hairline pl-6 pr-2">
               <Stat n={today.done} label="done" />
               <Stat n={remaining} label="remaining" />
               <Stat n={`${Math.round((today.minutes / 60) * 10) / 10}h`} label="focus left" />
