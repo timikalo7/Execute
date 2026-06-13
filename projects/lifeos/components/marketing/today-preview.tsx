@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Flame } from "lucide-react";
 import { Badge } from "@/components/base/badge";
 import { ImageFrame } from "@/components/aceternity/image-frame";
+import { HERO_IMAGE } from "@/lib/assets";
 
 const TASKS = [
   { lev: 95, title: "Rebuild the onboarding aha-moment", meta: "Deep Work · 90m · Career", on: true },
@@ -18,7 +19,7 @@ export function TodayPreview() {
       {/* reserved photographic slot — drop a Higgsfield asset at /public/hero.jpg.
           Renders a deep ink field until then, so the layout holds. */}
       <ImageFrame
-        src={undefined}
+        src={HERO_IMAGE ?? undefined}
         alt="Pre-dawn, the day not yet begun"
         caption="05:50 · the day, compiled"
         priority
