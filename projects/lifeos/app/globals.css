@@ -1,0 +1,136 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  LifeOS design tokens — neo-editorial, warm mineral.
+  OKLCH throughout. Never pure black, never pure white.
+  Amber = focus/priority. Sage = growth/done/live. Clay = warning (sparse).
+*/
+:root {
+  /* Light surface — warm paper, the dashboard ground */
+  --paper: oklch(97% 0.008 85);
+  --paper-raised: oklch(99% 0.006 85);
+  --paper-sunk: oklch(94% 0.01 84);
+
+  /* Dark ground — warm mineral ink, the marketing ground */
+  --ink: oklch(18% 0.012 70);
+  --ink-deep: oklch(13% 0.01 68);
+  --ink-raised: oklch(22% 0.013 72);
+  --ink-graphite: oklch(28% 0.012 74);
+  --ink-graphite-2: oklch(34% 0.012 76);
+
+  /* Amber — the golden-hour focus accent */
+  --amber: oklch(80% 0.13 72);
+  --amber-rich: oklch(74% 0.14 66);
+  --amber-deep: oklch(58% 0.12 60);
+  --amber-pale: oklch(90% 0.07 78);
+
+  /* Sage — muted evergreen, growth + completion */
+  --sage: oklch(62% 0.07 155);
+  --sage-deep: oklch(48% 0.07 158);
+  --sage-pale: oklch(86% 0.05 152);
+
+  /* Clay — vermilion warning, sparingly */
+  --clay: oklch(58% 0.15 38);
+
+  /* Text tiers — neutral, no warmth, on light paper */
+  --text-head: oklch(24% 0.01 70);
+  --text-body: oklch(34% 0.008 70);
+  --text-muted: oklch(50% 0.006 70);
+  --text-faint: oklch(62% 0.005 70);
+
+  --hairline: oklch(24% 0.01 70 / 0.14);
+  --hairline-strong: oklch(24% 0.01 70 / 0.28);
+
+  --bg: var(--paper);
+  --fg: var(--text-body);
+}
+
+/* Dark context (marketing hero, demo, any .dark subtree) */
+.dark {
+  --text-head: oklch(95% 0 0);
+  --text-body: oklch(88% 0 0);
+  --text-muted: oklch(72% 0 0);
+  --text-faint: oklch(60% 0 0);
+
+  --hairline: oklch(90% 0 0 / 0.12);
+  --hairline-strong: oklch(90% 0 0 / 0.24);
+
+  --bg: var(--ink);
+  --fg: var(--text-body);
+}
+
+* {
+  border-color: var(--hairline);
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-feature-settings: "ss01", "cv01";
+}
+
+::selection {
+  background: var(--amber-pale);
+  color: var(--ink-deep);
+}
+
+/* Editorial defaults */
+.font-display {
+  font-feature-settings: "ss01";
+}
+
+/* Eyebrow / tracked label — short only */
+.eyebrow {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Hairline-first divider */
+.rule {
+  height: 1px;
+  background: var(--hairline);
+  border: 0;
+}
+
+/* Thin custom scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--hairline-strong);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Staggered reveal helper (primary -> secondary -> supporting, 15-25% delay) */
+@media (prefers-reduced-motion: no-preference) {
+  .reveal {
+    opacity: 0;
+    animation: fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+}
+
+/* Grain — subtle, brand-bearing texture only, very low opacity */
+.grain::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
