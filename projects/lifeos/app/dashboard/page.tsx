@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { Flame, LogOut, Plus, Sparkles, Target } from "lucide-react";
+import { Flame, LogOut, Plus, Sparkles, Target, TriangleAlert } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useStore, useToday } from "@/lib/store";
 import { BLOCK_META, DOMAIN_META, TaskBlock } from "@/lib/types";
@@ -25,7 +25,15 @@ const GREETING = () => {
 export default function DashboardPage() {
   const router = useRouter();
   const { user, ready: authReady, signOut } = useAuth();
-  const { person, ready: storeReady, toggleTask, addTask } = useStore();
+  const {
+    person,
+    ready: storeReady,
+    storageError,
+    toggleTask,
+    addTask,
+    editTask,
+    removeTask,
+  } = useStore();
   const today = useToday(person);
   const [adding, setAdding] = useState(false);
 
@@ -78,6 +86,21 @@ export default function DashboardPage() {
       </header>
 
       <div className="mx-auto max-w-section px-5 py-8 sm:px-8 sm:py-10">
+        {/* honest, non-blocking notice when changes can't be written to disk */}
+        {storageError && (
+          <div
+            role="status"
+            className="mb-6 flex items-start gap-2.5 rounded-md border border-clay/40 bg-clay/[0.06] px-4 py-3 text-sm text-body"
+          >
+            <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-clay" />
+            <span>
+              Your changes are live in this tab, but couldn’t be saved to this
+              device — storage may be full or blocked (private browsing). They’ll
+              be lost on reload until storage is available again.
+            </span>
+          </div>
+        )}
+
         {/* greeting + focus */}
         <div className="mb-8 grid gap-5 lg:grid-cols-[1fr_auto]">
           <div>
@@ -161,7 +184,14 @@ export default function DashboardPage() {
             <div className="space-y-2">
               <AnimatePresence initial={false}>
                 {today.tasks.map((t, i) => (
-                  <TaskRow key={t.id} task={t} index={i} onToggle={toggleTask} />
+                  <TaskRow
+                    key={t.id}
+                    task={t}
+                    index={i}
+                    onToggle={toggleTask}
+                    onEdit={editTask}
+                    onRemove={removeTask}
+                  />
                 ))}
               </AnimatePresence>
             </div>
@@ -259,6 +289,7 @@ function QuickAdd({
         <input
           autoFocus
           value={title}
+          maxLength={120}
           onChange={(e) => setTitle(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && title.trim()) onAdd(title.trim(), block);

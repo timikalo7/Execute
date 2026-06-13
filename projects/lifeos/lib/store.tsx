@@ -13,21 +13,34 @@ import { seedPerson, emptyPerson } from "./seed";
 
 const KEY = "lifeos:person:v1";
 
+/** Fields a user may edit on an existing task. */
+export type TaskPatch = Partial<
+  Pick<Task, "title" | "leverage" | "block" | "estimate" | "domain">
+>;
+
 interface StoreApi {
   person: Person | null; // null until hydrated
   ready: boolean;
+  /** true when the last write to localStorage failed (private mode, quota). */
+  storageError: boolean;
   toggleTask: (id: string) => void;
   addTask: (t: Omit<Task, "id" | "date" | "done">) => void;
+  editTask: (id: string, patch: TaskPatch) => void;
+  removeTask: (id: string) => void;
   setPerson: (p: Person) => void;
   resetSeed: () => void;
   clear: () => void;
 }
+
+const clampLeverage = (n: number) =>
+  Math.max(0, Math.min(100, Math.round(Number.isFinite(n) ? n : 0)));
 
 const StoreCtx = createContext<StoreApi | null>(null);
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [person, setPersonState] = useState<Person | null>(null);
   const [ready, setReady] = useState(false);
+  const [storageError, setStorageError] = useState(false);
 
   // Hydrate from localStorage once on mount (SSR-safe).
   useEffect(() => {
@@ -40,60 +53,92 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setReady(true);
   }, []);
 
-  const persist = useCallback((p: Person) => {
-    setPersonState(p);
+  // One write path: update memory, then try to persist. A failed write keeps
+  // the change in memory and raises storageError so the UI can be honest.
+  const commit = useCallback((next: Person) => {
+    setPersonState(next);
     try {
-      localStorage.setItem(KEY, JSON.stringify(p));
+      localStorage.setItem(KEY, JSON.stringify(next));
+      setStorageError(false);
     } catch {
-      /* storage may be unavailable — keep in-memory */
+      setStorageError(true);
     }
   }, []);
 
+  const persist = commit;
+
   const toggleTask = useCallback(
     (id: string) => {
-      setPersonState((prev) => {
-        if (!prev) return prev;
-        const tasks = prev.tasks.map((t) =>
+      if (!person) return;
+      commit({
+        ...person,
+        tasks: person.tasks.map((t) =>
           t.id === id ? { ...t, done: !t.done } : t,
-        );
-        const next = { ...prev, tasks };
-        try {
-          localStorage.setItem(KEY, JSON.stringify(next));
-        } catch {}
-        return next;
+        ),
       });
     },
-    [],
+    [person, commit],
   );
 
-  const addTask: StoreApi["addTask"] = useCallback((t) => {
-    setPersonState((prev) => {
-      if (!prev) return prev;
+  const addTask: StoreApi["addTask"] = useCallback(
+    (t) => {
+      if (!person) return;
       const task: Task = {
         ...t,
+        leverage: clampLeverage(t.leverage),
         id: `t${Date.now()}`,
         done: false,
         date: new Date().toISOString().slice(0, 10),
       };
-      const next = { ...prev, tasks: [task, ...prev.tasks] };
-      try {
-        localStorage.setItem(KEY, JSON.stringify(next));
-      } catch {}
-      return next;
-    });
-  }, []);
+      commit({ ...person, tasks: [task, ...person.tasks] });
+    },
+    [person, commit],
+  );
+
+  const editTask = useCallback(
+    (id: string, patch: TaskPatch) => {
+      if (!person) return;
+      commit({
+        ...person,
+        tasks: person.tasks.map((t) =>
+          t.id === id
+            ? {
+                ...t,
+                ...patch,
+                leverage:
+                  patch.leverage === undefined
+                    ? t.leverage
+                    : clampLeverage(patch.leverage),
+              }
+            : t,
+        ),
+      });
+    },
+    [person, commit],
+  );
+
+  const removeTask = useCallback(
+    (id: string) => {
+      if (!person) return;
+      commit({ ...person, tasks: person.tasks.filter((t) => t.id !== id) });
+    },
+    [person, commit],
+  );
 
   const api = useMemo<StoreApi>(
     () => ({
       person,
       ready,
+      storageError,
       toggleTask,
       addTask,
+      editTask,
+      removeTask,
       setPerson: persist,
       resetSeed: () => persist(seedPerson(person?.name ?? "there")),
       clear: () => persist(emptyPerson(person?.name ?? "there")),
     }),
-    [person, ready, toggleTask, addTask, persist],
+    [person, ready, storageError, toggleTask, addTask, editTask, removeTask, persist],
   );
 
   return <StoreCtx.Provider value={api}>{children}</StoreCtx.Provider>;
