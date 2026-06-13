@@ -45,7 +45,7 @@ export function ProgressRing({
       </svg>
       <div className="absolute inset-0 grid place-items-center text-center">
         <div>
-          <div className="font-display text-2xl font-light text-head">{label}</div>
+          <div className="font-mono text-2xl font-medium tabular-nums text-head">{label}</div>
           {sublabel && (
             <div className="font-mono text-[0.6rem] uppercase tracking-wider text-muted">
               {sublabel}

@@ -261,7 +261,7 @@ export default function DashboardPage() {
 function Stat({ n, label }: { n: React.ReactNode; label: string }) {
   return (
     <div className="flex items-baseline gap-2">
-      <span className="font-display text-xl font-light text-head">{n}</span>
+      <span className="font-mono text-xl font-medium tabular-nums text-head">{n}</span>
       <span className="font-mono text-[0.62rem] uppercase tracking-wider text-muted">
         {label}
       </span>
