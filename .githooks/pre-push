@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# git pre-push hook — second line of enforcement (catches pushes made outside the Claude harness).
+# Activated by `git config core.hooksPath .githooks`, set every SessionStart by
+# .claude/hooks/operating-rules.sh. Same gate as the PreToolUse guard.
+exec bash "$(git rev-parse --show-toplevel)/.claude/hooks/pre-push-gate.sh"

@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "autoMode": { "environment": ["$defaults"] },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/operating-rules.sh",
+            "timeout": 10,
+            "statusMessage": "Loading Execute operating rules"
+          },
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh",
+            "timeout": 10,
+            "statusMessage": "Loading Execute memory"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/pre-push-guard.sh",
+            "timeout": 300,
+            "statusMessage": "Pre-push gates (security · system-design · learner · visual-qa)"
+          }
+        ]
+      }
+    ]
+  }
+}
