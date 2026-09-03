@@ -135,7 +135,7 @@ Execute curates this file. Each principle is a durable, generalizable lesson in 
 **Why:** Lessons this session were written to memory only after the owner said "this is supposed to be ingrained." Execute is meant to compound automatically; a lesson captured on demand is usually a lesson already lost.
 **When:** At the end of every task/milestone (not just on `/learn`) — distill what bit you into the right store (principle / tool-note / user-profile / skill) and commit it before moving on.
 **Principle:** "Custom" design means a distinct interactive mechanic per section — not a repeated editorial template.
-**Why:** The owner rejected the same generic look twice (the example web app, an example marketing site): big-serif heading + ghost numerals + framed photo, repeated down the page, reads as AI slop no matter how clean. What they call "custom" is per-section *mechanics* (cursor-reveal hero, overlay menu, `.01/.02/.03` pinned scrollytelling, full-bleed alternating imagery), a neutral base + one accent, arrow-links over buttons, untinted one-use photos, and sparse custom-cursor moments. Reference sites: redstone, carmowood, db-longbow, elyse-residence, korowa, eatnaked, ESPN longform. Captured in `.claude/skills/owner-design-taste/` and `memory/user-profile.md`.
+**Why:** The owner rejected the same generic look twice (an example app-web, an example marketing site): big-serif heading + ghost numerals + framed photo, repeated down the page, reads as AI slop no matter how clean. What they call "custom" is per-section *mechanics* (cursor-reveal hero, overlay menu, `.01/.02/.03` pinned scrollytelling, full-bleed alternating imagery), a neutral base + one accent, arrow-links over buttons, untinted one-use photos, and sparse custom-cursor moments. Reference sites: redstone, carmowood, db-longbow, elyse-residence, korowa, eatnaked, ESPN longform. Captured in `.claude/skills/owner-design-taste/` and `memory/user-profile.md`.
 **When:** Any website / landing / UI build — load `owner-design-taste`, give each section its own mechanic, and never ship two sections that share a layout.
 
 **Principle:** Money and events: idempotency key + immutable append-only ledger + signed webhooks + outbox→DLQ — never a single mutable status row.
@@ -165,7 +165,7 @@ payments provider, verify with real tools. (App-UI polish ≠ the owner's market
 **When:** Whenever you introduce a new enforcement gate (CI check, pre-push hook, lint rule): run it against the existing codebase *expecting* failures, verify the fail path fires, and schedule the remediation as part of the gate's shipping cost — not as a surprise.
 
 **Principle:** A QA harness must prove it is measuring its own artifact — own the port, kill by pidfile, time-box every stage.
-**Why:** An orphaned `http.server` left by a crashed visual-qa run squatted the port; a later example-web sweep silently measured the an example marketing site site instead (every route 404 — the tell was python's "File not found" statusText). A harness that binds infrastructure it doesn't verify can pass/fail against the *wrong system* without any error. The durable shape (now in `visual-qa/run.sh`): pidfile-kill stale servers from previous runs, refuse busy ports (walk up to a free one), abort loudly if the server never answers, and hard time budgets via `timeout(1)` so a hang can't orphan processes. Never sweep a port you didn't just bind.
+**Why:** An orphaned `http.server` left by a crashed visual-qa run squatted the port; a later an example marketing site sweep silently measured the an example marketing site site instead (every route 404 — the tell was python's "File not found" statusText). A harness that binds infrastructure it doesn't verify can pass/fail against the *wrong system* without any error. The durable shape (now in `visual-qa/run.sh`): pidfile-kill stale servers from previous runs, refuse busy ports (walk up to a free one), abort loudly if the server never answers, and hard time budgets via `timeout(1)` so a hang can't orphan processes. Never sweep a port you didn't just bind.
 **When:** Any gate/harness/test that starts a server or background process — and any time results look uniformly absurd (every route 404), first ask *which* system answered, not what's wrong with yours.
 
 **Principle:** Anything that must never drop belongs in CLAUDE.md, not in hook-injected session context.
@@ -207,9 +207,279 @@ payments provider, verify with real tools. (App-UI polish ≠ the owner's market
 **When:** Any cached pass stamp or gate artifact — after a merge, a takeover from a dead agent, or any tree change, re-validate the stamp against the current tree before trusting it; and design new gate stamps to embed the tree-hash so staleness is mechanically detectable.
 
 **Principle:** Build-time config that gates auth must fail CLOSED — throw when half-configured, never silently downgrade to fake auth.
-**Why:** the example web app inlines `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` at build; with the secret set but the publishable key missing (the owner's actual cloud-env state) the app silently ran the keyless fallback — any email+password "signs in" while looking like real accounts. Fix: `next.config` throws on secret-without-publishable (both-or-neither). A missing key that flips a security mode must break the build, not the trust model.
+**Why:** an example app-web inlines `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` at build; with the secret set but the publishable key missing (the owner's actual cloud-env state) the app silently ran the keyless fallback — any email+password "signs in" while looking like real accounts. Fix: `next.config` throws on secret-without-publishable (both-or-neither). A missing key that flips a security mode must break the build, not the trust model.
 **When:** Any build-time env flag that selects between a secured and an unsecured path — assert both-or-neither and fail the build loudly.
 
 **Principle:** Pre-account/guest data belongs in tab-scoped, TTL-bound storage — never durable localStorage — and migration must DELETE the source.
 **Why:** an example app demo persisted a guest's interview to durable localStorage at the sign-up click; an abandoned sign-up left it forever, and on a shared machine the next person to sign in adopted a stranger's plan (anon bucket was copied, never cleared). Fix: `sessionStorage` pending bucket (tab-scoped + timestamp TTL), one-shot consumed on first signed-in load, and `removeItem` the legacy anon bucket after adoption.
 **When:** Any "capture now, persist after signup" flow — pending data is sessionStorage+TTL; on adoption, migrate then delete the source so it can't leak to the next account/user.
+
+**Principle:** In an agent/LLM pipeline a model REFUSAL is data, not an error — return it as a successful result (HTTP 200 structured payload), never throw and crash the loop.
+**Why:** A refusal thrown as an exception crashes the orchestration or triggers blind retries that burn tokens for the same refusal. Surfaced as structured data (`{refused:true, reason}`), the orchestrator can re-route, re-prompt differently, downgrade the model, or escalate to the human — it decides. (From a Fable-5 "agentic OS" build reel, 2026-07.)
+**When:** Any agent loop or product LLM call — catch safety-stops/refusals and return them at 200 as data, distinct from real transport errors (5xx/network, which DO signal failure). Bound retries; never auto-retry a refusal unchanged (that's the "no blind retry" rule from mcp-and-prompt-craft).
+
+**Principle:** Operate in the 40–80% context band; near 80%, hand off deliberately — never rely on auto-compaction.
+**Why:** Auto-compaction summarizes lossily and drops the exact file paths, decisions, and in-flight state you need to continue; work degrades as context fills past ~80%. A deliberate handoff — writing yourself a prompt that captures goal, what's done, exact next steps, key paths, and open decisions BEFORE memory is lost — resumes cleanly. Efficiency and output quality are best between 40% and 80% of the window (creator workflow, verified as sound practice 2026-07). Pairs with the gastown-style agent handoff hook.
+**When:** Any long session. When context approaches ~80% (the `PreCompact` hook fires a reminder), stop and write the handoff, then clear/compact — don't let a silent auto-compact eat the detail. Keep the working set lean so you stay in the band.
+
+**Principle:** Write the least code that solves it — the cheapest token is the one never generated.
+**Why:** Generated code is a large share of the token bill AND all future maintenance. Speculative abstractions, scaffolding "for later", and custom code where the stdlib or the native platform already does it cost output tokens now and complexity forever. Measured at ~54% less code (up to 94%), ~20% cheaper, ~27% faster.
+**When:** Every build. **The operational rule set lives in the `ponytail` skill** (vendored, MIT — YAGNI check, stdlib before custom, native before dependency, one line before fifty, intensity lite/full/ultra) — load it rather than restating it here. Deliberate shortcuts get a `ponytail:` comment naming their ceiling and upgrade path; `ponytail-debt` harvests them into a ledger so a deferral cannot quietly become permanent.
+**Principle:** Prove it — a completion claim without evidence is not a completion.
+**Why:** The owner stopped believing status reports, and was right to: "lowk i dont believe u." Narration is free and unfalsifiable; a command and its output are not. This is the same rule Execute already applies to its own agents (evaluators judge the artifact, never the builder's account of it) turned on the reporting itself. It also catches real bugs — proving the pre-push guard against an RTK-wrapped `git push` is what exposed that the gate would have silently stopped firing.
+**When:** Every task the owner asks for. Prove against the **shipped** artifact (read it back from origin, run the file that landed), prove it **fails on bad input** as well as passing on good, and list the unproven parts in the same breath. A skipped or blocked check is reported as not-checked, never as done. If it cannot be proven, say so and say what would prove it.
+
+**Principle:** Size a composite logo by its smallest legible element's share of the total height, not by how big the whole mark looks.
+**Why:** On an example marketing site the RCCG roundel was 36.9% of a stacked lockup, so making its ring lettering readable demanded a 163px logo and a bar taking 23-48% of the viewport. The owner-supplied horizontal version put the roundel at 99.5% of the height and delivered a MORE readable mark in a bar of 16%. Two rounds of "make it bigger" were really a geometry problem, and no amount of scaling could fix it.
+**When:** Any header, nav bar, or fixed chrome carrying a multi-part logo — measure the critical element's fraction first, and if the ratio is bad, change the lockup rather than the scale.
+
+**Principle:** A scanner cannot judge whether an image reads; look at the screenshot.
+**Why:** Two genuinely broken header states on an example marketing site — a knockout filter that flattened the church seal into a blank white circle, and full-colour artwork fighting a busy photograph — both passed axe with zero violations. Automated accessibility checks cover text contrast, not whether a logo is intelligible against what is behind it.
+**When:** Every visual change involving imagery over imagery. Treat a clean axe run as necessary, never sufficient, and put eyes on the render.
+
+**Principle:** Shape the proof to the change's blast radius, not to the change.
+**Why:** On an example marketing site every screenshot proving the enlarged header logo was clipped to the bar's own height — which cropped out exactly the region where the logo turned out to be sitting on top of the hero copy. The change was photographed; what it could break was not. The owner found the bug, not the evidence.
+**When:** Any change to fixed, sticky, overlaying, or shared chrome. Capture the neighbours and the states the element interacts with, never just the element.
+
+**Principle:** A new gate rule is untrusted until it has been shown to FAIL, and shown not to cry wolf.
+**Why:** The fixed-chrome collision check added to visual-qa passed the fixed site immediately — worthless on its own. Re-breaking the header deliberately proved it exits 1 and names the offending text. Its first version also fired on three pages where nothing was wrong, because it sampled the bar 260ms in while its background transition runs 300ms; a gate with false positives gets switched off, which is how evaluator decay begins.
+**When:** Every time a check is added or changed. Prove the failing case, then prove the clean case, then fix any flake before trusting either.
+
+
+**Principle:** A repeated failure is an observation, not a law — date it, and retry before writing a source off.
+**Why:** Two Instagram reels failed to download on 2026-08-12, and that got recorded in `watch-video` as a property of the platform ("reels are broken, use the caption"). On 2026-08-13 the same command downloaded a reel end-to-end and produced twelve frames. Nothing had been fixed; the earlier failure was transient. A skill that hard-codes a transient outage teaches every future session to skip the thing that works, and the owner pays for the degraded answer without ever being told a workaround was in play.
+**When:** Any time a measured failure is about to be written into a skill or memory file. Stamp the finding with its date, phrase it as "measured on X" rather than "does not work", and make the ladder start with *try it again* — a stale workaround is more expensive than a retry.
+
+## Detected is not prevented — budget every warning, and let the budget only shrink
+
+**Principle.** A check that only ever *reports* is not a safety net; it is scrollback. Every
+detection must be either blocking or **budgeted** — carrying a reviewed count and a written reason —
+and the budget must be mechanically enforced so it can only go down.
+
+**Why.** `security-gate` printed 71 warnings on every push for weeks and blocked nothing:
+50 `dangerous-html`, 14 `insecure-http`, 4 `eval-usage`, 2 `upload-no-validation`,
+1 `shell-interpolation`. Nobody triaged them, because nothing forced anyone to. The real cost is not
+the 71 — it is that a genuinely new unvalidated upload handler would have arrived **invisibly among
+fifty old ones**. The pile was simultaneously the evidence and the camouflage.
+
+**Why not just promote them to FAIL.** Because the reasons they are warnings are still true: a
+line-based regex cannot see that a value was escaped two lines earlier. Promoting them would have
+produced a gate everyone bypasses, which is worse than one everyone ignores.
+
+**The mechanism.** `warning-budget.json` gives each rule a `max` and a `reason`. Over budget FAILS
+the push and names how many are new. Under budget **rewrites the budget down**, so an improvement is
+locked in and cannot silently regress. A rule that fires with no entry fails, so a new class of
+problem cannot arrive quietly; an entry with no reason fails, so "accepted" always means somebody
+said why. Raising a budget is legal, but only deliberately, in its own commit, with the reason —
+the same rule that already governs weakening a gate.
+
+**When.** Any time a check produces findings it does not block on: linters, `npm audit`, axe
+violations, type errors in legacy files, "NOT CHECKED" statuses. The question to ask of every
+non-blocking finding is *"what stops this number from growing?"* — and if the answer is "somebody
+noticing", it will grow.
+
+**Proven, both directions, 2026-08-28.** A new `eval-usage` warning → `RESULT: FAIL … 1 NEW since
+the budget was reviewed`, **exit 1**. Budget inflated to 9 → `BUDGET RATCHETED DOWN: eval-usage 9 →
+4`, written back to disk. Entry deleted → fails as an unaccepted class. Reason blanked → fails for
+having no stated reason. Baseline → exit 0. The ratchet also caught its own author: the first draft
+of the `insecure-http` reason quoted the literal scheme prefix and tripped the rule it configures.
+That was fixed by rewording, **not** by adding an exclusion — an exclusion is a permanent hole and
+this was a one-line sentence.
+
+**And then the ratchet was wrong, one commit later, in a way only running it could show.** The
+budget was a whole-repo number, but `pre-push-gate.sh` **never scans the whole repo** — it scans the
+root with `--exclude projects,skill-library,security-gate`, then each touched project separately.
+Every one of those is a subset, so a subset legitimately under budget ratcheted `dangerous-html`
+from 50 down to 5, after which a full scan failed against a budget it could never meet. The
+mechanism was right and the configuration it actually runs in was not. Fix: **budgets are keyed by
+scan scope**, and an unseen scope is baselined on first sight, because the goal is stopping growth
+from here rather than auditing history. Generalise it: *a threshold is only meaningful against the
+scope it was measured on, so store the scope with the threshold.*
+
+## A literal-pattern scanner counts every file that documents it
+
+**Principle.** When a check greps for literal strings, everything that *names* those strings is
+inside the haystack: the scanner's own source, its config, its docs, and the gate wiring that
+invokes it. Decide the scanner's self-boundary the day you write it, not the day it fails.
+
+**Why.** This cost three separate blocked pushes in one session, and each time the scanner was
+loudly, correctly wrong about itself:
+
+1. `security-gate`'s new `warning-budget.json` explained an `insecure-http` budget in prose that
+   quoted the literal scheme prefix — tripping the rule it configures.
+2. `debt-ratchet`'s first baseline counted its own `MARKERS` literals and its own budget file's
+   reason strings, inflating every pile, then failed against the numbers it had just inflated.
+3. `pre-push-gate.sh`'s wiring comment listed the marker names to explain what the ratchet does —
+   and the ratchet counted the explanation as four new pieces of debt.
+
+**The two fixes, and when each is right.** *Reword* when the mention is incidental prose — one
+sentence, no exclusion surface, nothing gets hidden (cases 1 and 3). *Exclude, narrowly and by
+name*, when the file must contain the literals to do its job — a scanner's pattern table and its own
+budget file (case 2). Never exclude by shape (`any json`, `any test file`): that is a permanent hole
+in the exact place the next real finding will land.
+
+**The tell.** A checker whose count changes when you only edited documentation is measuring itself.
+And a checker that first FAILS on its own commit is behaving correctly — the temptation in that
+moment is to budget the finding rather than fix it, and taking it makes the gate a formality on its
+first real test.
+
+---
+
+## Cloning: the evaluator has to hold the whole reference
+
+**2026-08-28/29, an example component library.** A clone of a long scrolling page was built, measured against four
+checks, gated, and shipped. The owner looked at it and said "it's not close." They were right, and
+every check had passed it.
+
+**Nobody had ever looked at the reference page in full.** The build was compared against a 50-second
+screen recording, five DOM properties, and a pixel profile — and that profile had been *captured from
+the same partial view*. Capturing the reference end to end (34 viewports, 27,060px) and laying it
+beside the build in one composite image took about a minute and made the failure undeniable
+immediately: the reference opens on a black space scene and crosses between light and dark grounds
+five times; the build was white almost throughout.
+
+Three lessons, in the order they cost time:
+
+1. **Capture the reference completely and LOOK at it, before building.** Not a video, not an
+   impression — stills down the whole page, in one sheet. Everything downstream is measuring against
+   whatever this step produced, so a partial capture poisons every check built on top of it.
+2. **Suspect the baseline before the tolerance.** The reference profile claimed ink 3.2%, edge 1.3%,
+   chroma 0.029, one mid-tone crossing. The real page is 25.6%, 7.1%, 0.209, seven. It understated
+   density eightfold and alternation sevenfold, so the target *was* a nearly-empty greyscale page and
+   an empty greyscale clone genuinely matched it. Tightening tolerances against a false baseline is
+   motion without progress. When a check passes something a person rejects, the first question is
+   *what is it comparing against*, not *how tight is the threshold*.
+3. **Prefer the crudest metric that would have caught it.** The check that finally worked classifies
+   each screen dark/mid/light and compares the sequence. It is almost insultingly simple, needs no
+   key and no network, and it is the one that fails an all-white clone of a half-dark page. Sophisticated
+   metrics collapsed to page-wide means and hid exactly the failure they existed to find.
+
+**Corollary — a scoring loop invites gaming, including by your own agents.** A build agent working
+this loop stretched the hero to 190vh to move the page-aspect number, then reverted it itself. The
+number would have improved and the page would have been worse. Metrics are a work list, never the
+goal; when a fix targets the measurement rather than the thing measured, it is not a fix.
+
+## Two more, from the same run
+
+**A gate with no selftest is not a gate.** `security-gate` had none. Two rules were firing on code
+doing nothing of the kind — `insecure-http` on every `createElementNS('http://www.w3.org/2000/svg')`
+in the repo, `eval-usage` on Playwright's `page.$eval` (`\b` sits happily between `$` and `e`).
+Worse, scanning a new project auto-baselined the false positives as accepted debt, which would have
+buried real findings underneath them. Fix the rule at source; never budget around a bug in the
+checker. Assert every rule in BOTH directions — a line it must catch and a line it must ignore.
+
+**Record an asset's provenance at download time, not at ship time.** A cut-out was already optimised
+and better-looking than its replacement when it turned out its source URL had never been recorded;
+hashing it against every candidate the API returned found no match, so it was deleted. An asset that
+cannot be attributed is not a cheap asset, it is a liability with a nice edge on it.
+
+## Copying something means interacting with it, not photographing it
+
+**Owner instruction, 2026-08-30, verbatim:** *"if i give u something to copy u have to interact with
+all its features so u can copy it all this applies to mobile apps asw."*
+
+A clone built from scrolling screenshots reproduces a page's **resting state and nothing else**. Every
+hover, every open menu, every expanded accordion, every focused field, every loading, empty and error
+state is invisible to a scroll capture — and so is anything that happens before load.
+
+**The proof arrived within minutes of being told.** A site had been cloned across ten iterations from
+34 static stills. Driving it in a browser for the first time showed it opens on a **full-screen
+preloader** — a dot-matrix world map with live port markers, a country list, a service list, a percent
+counter — which establishes the dot-map motif the hero globe later pays off. Ten iterations of
+fidelity work had never seen it, because every capture started after load.
+
+**The rule:** before cloning anything, drive it. Open the menu. Hover the links and the buttons. Click
+the accordions. Focus the fields. Resize to mobile and do it again. Watch it load. Photograph each
+state and write down which ones you could not reach.
+`.claude/skills/browser-drive/interaction-capture.mjs` does this for a URL; for a mobile app the
+equivalent is a screen recording of someone actually using it, read through `watch-video`.
+
+**And say what you could not reach.** On that site the interactive states are still NOT CHECKED: the
+preloader is progress-gated, every request round-trips through Node because Chromium there cannot
+reach the internet directly, and the counter sat between 33% and 70% across three attempts. The served
+HTML carries 48 `menu-toggle`, 16 `accordion` and 92 `faq` references, so those features demonstrably
+exist and are demonstrably uncopied. "No matching element" from a page that never mounted is a
+statement about timing, not about the page.
+
+## A statistic that cannot tell concentrated from scattered will pass the wrong thing
+
+Page-mean chroma on that clone read 0.207 against the reference's 0.209 and was defended as MATCHED
+for three iterations. An independent judge looking at the images said the reference is **near
+monochrome** — black, white, deep navy, one warm rim-light — while the build had saturated colour on
+every screen. Both are true. One warm light source on a monochrome page, and coloured cartoons
+everywhere, produce the same mean.
+
+This is the **same failure** as the page-mean ink-coverage bug that started that project: a summary
+statistic hiding the distribution it summarises. The fix for ink was per-band comparison. Any metric
+defended as "matched" on a page-wide average should be assumed guilty until it has been checked band
+by band.
+
+## Lateral motion is the thing that makes a site feel custom — and it is the first thing to get flattened
+
+**Owner instruction, 2026-08-30, verbatim:** *"if a site i tell u to copy has a scrolling component
+that scrolls not up or down u dont implement. this is not good as those sort of abstractions is what
+makes the site feel more custom and unique alongside things like rotating features/scroll elements or
+breaking 4th wall these must also be implemented alongside your usual copying as they are good and can
+be applied to future designs as it is all a part of story telling which all great apps do."*
+
+Verified on the spot rather than accepted, and the owner was right. Four consecutive reference slices
+(`s10-8200` through `s13-10660`) show **three lateral tracks running at once, all driven by vertical
+scroll**:
+
+| slice | ghost word | service cards |
+|---|---|---|
+| s10 | `O` entering at the right edge | none |
+| s11 | `OUR S` | none |
+| s12 | `UR SERVI` — slid left | AIR FREIGHT, OCEAN FREIGHT entering from the right |
+| s13 | `ERVICES` — slid further left | row slid left; AIR FREIGHT has EXITED, PROJECT CARGO entered |
+
+The clone had a static ghost word and a static grid of service cells. Eleven iterations of fidelity
+work never noticed, because **a static screenshot of a lateral track looks like a static element.**
+Two stills at different scroll depths are the only way to see it, and no single-frame check — not
+ink, not edge, not chroma, not a judge looking at one frame per position — can.
+
+**The rule.** When copying anything, look for motion whose OUTPUT axis differs from its INPUT axis,
+and for anything that acknowledges the viewer:
+
+- **vertical scroll → horizontal travel** — pinned rails, marquees, card tracks, ghost words crossing
+  the frame, a subject driving across the screen
+- **scroll → rotation** — dials, wheels, globes, an element that turns as you descend
+- **scroll → scrub** — a sequence stepped frame by frame rather than eased
+- **fourth-wall devices** — the page reacting to the cursor, addressing the reader, a element that
+  behaves as though it knows it is being looked at
+- **counter-scroll** — layers moving against the scroll direction
+
+These are the storytelling devices. They are why a page feels made rather than assembled, they are
+reusable across future projects once built as components, and they are exactly what a
+screenshot-driven clone drops on the floor.
+
+**How to catch it:** compare consecutive captures, not single frames. If an element's x-position
+changes between two slices at different scroll depths, it is on a lateral track and must be built as
+one. `contact-sheet.mjs` already produces the slices; the comparison is the step that was missing.
+
+## Silence from a long check is not a verdict — read its log, not your filter
+
+**What happened:** Three times in one session I told the owner a `visual-qa` sweep was stuck, twice
+recommending a workaround and once suggesting the session be restarted. Every time it was simply
+slow, and every time it finished a few minutes later and passed all three widths. The first time I
+had polled for `VQA EXIT=` while the run prints `vqa: exit 0`; the second and third times I watched a
+log that had gone quiet mid-sweep and read the quiet as a hang.
+
+**Why it kept happening:** each check was cheap and negative — `grep -q` returning nothing — so I
+treated "no signal yet" as "no signal coming". A long-running check that is working looks exactly
+like one that is wedged, unless you look at what it has *already* written and at whether its process
+is alive.
+
+**The rule.** Before calling any long check stuck, three things, in this order:
+1. `tail` the log itself and read what it actually printed, rather than grepping for the string you
+   assumed it prints. The string is the most likely thing to be wrong.
+2. Check the process is alive (`pgrep -c -f`) and how long it has run (`ps -o etimes=`). A live
+   process with recent output is progress.
+3. Only then, and only if the process is gone or the output is genuinely frozen, call it stuck.
+
+And when a check has a known budget, wait at least that long *once* in a single call rather than
+polling in short bursts — the polling is what makes an unfinished run look like a dead one.
+
+**Cost:** a large part of a session spent waiting, plus three wrong reports to the owner, plus a
+recommendation to restart a session that did not need restarting. The work was committed and safe
+every time; only my reading of it was wrong.

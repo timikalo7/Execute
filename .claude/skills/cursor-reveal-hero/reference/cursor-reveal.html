@@ -1,0 +1,140 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Cursor-reveal hero — reference implementation</title>
+<!--
+  Reference implementation for the `cursor-reveal-hero` skill. Self-contained on purpose: it has no
+  build step, no framework and no network dependency, so `verify.mjs` can drive it in a headless
+  browser and PROVE the mask actually tracks the pointer rather than taking the CSS on trust.
+
+  The two layers here are flat colours, not the real photograph and video. That is deliberate — a
+  pixel assertion against a photo proves nothing, while red-under-blue means a sampled pixel is
+  unambiguous evidence about which layer is showing at that exact coordinate.
+-->
+<style>
+  :root { color-scheme: light dark; }
+  html, body { margin: 0; height: 100%; }
+  body { display: grid; place-items: center; background: #f4f4f2; }
+
+  .reveal-hero {
+    position: relative;
+    width: 800px;
+    height: 500px;
+    overflow: hidden;
+    /* The pointer writes into these, nothing else. Keeping the contract to two custom properties is
+       what makes the effect cheap: no layout, no re-render, one paint of one layer. */
+    --mx: 50%;
+    --my: 50%;
+    --r: 160px;
+  }
+
+  .reveal-hero__base,
+  .reveal-hero__alive {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+
+  /* Stand-ins for the real assets. In production these are an <img> and a <video>. */
+  .reveal-hero__base  { background: #b00020; }
+  .reveal-hero__alive { background: #0047ab; }
+
+  /* The whole effect. The alive layer is painted everywhere and shown only inside a soft disc
+     centred on the pointer. Soft edge — a hard circle reads as a magnifying glass, a feathered one
+     reads as the thing underneath bleeding through. */
+  @supports (mask-image: radial-gradient(#000, #000)) or (-webkit-mask-image: radial-gradient(#000, #000)) {
+    .reveal-hero__alive {
+      -webkit-mask-image: radial-gradient(circle var(--r) at var(--mx) var(--my), #000 0 55%, transparent 100%);
+              mask-image: radial-gradient(circle var(--r) at var(--mx) var(--my), #000 0 55%, transparent 100%);
+    }
+  }
+
+  /* No mask support at all: show the base only. Never fall through to the alive layer covering the
+     whole hero — that is a different design, not a degraded one. */
+  @supports not ((mask-image: radial-gradient(#000, #000)) or (-webkit-mask-image: radial-gradient(#000, #000))) {
+    .reveal-hero__alive { display: none; }
+  }
+</style>
+
+<section class="reveal-hero" data-cursor-reveal data-radius="160">
+  <div class="reveal-hero__base" role="img" aria-label="A dead volcanic rock, hanging in white space"></div>
+  <div class="reveal-hero__alive" aria-hidden="true"></div>
+</section>
+
+<script type="module">
+  /**
+   * Pointer → two CSS custom properties, smoothed. That is the entire engine.
+   *
+   * Three things it refuses to do, each of which is a bug someone ships:
+   *   1. Write to style on every pointermove event. Pointer events fire faster than frames; the work
+   *      is batched into one rAF and coalesced.
+   *   2. Keep a rAF loop alive forever. It stops as soon as the mask has caught up with the pointer.
+   *   3. Ease under prefers-reduced-motion. The reveal is the user's own hand, which is fine at
+   *      WCAG AA, but the *lag* is autonomous motion the user did not ask for, so it goes.
+   */
+  const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  for (const host of document.querySelectorAll('[data-cursor-reveal]')) {
+    const radius = Number(host.dataset.radius || 160);
+    host.style.setProperty('--r', radius + 'px');
+
+    const rect = () => host.getBoundingClientRect();
+    let target = null;     // where the pointer is
+    let shown = null;      // where the mask currently is
+    let frame = 0;
+
+    const write = () => {
+      host.style.setProperty('--mx', shown.x.toFixed(1) + 'px');
+      host.style.setProperty('--my', shown.y.toFixed(1) + 'px');
+    };
+
+    const tick = () => {
+      frame = 0;
+      if (!target) return;
+      if (!shown) shown = { ...target };
+
+      const dx = target.x - shown.x;
+      const dy = target.y - shown.y;
+
+      if (REDUCED || Math.hypot(dx, dy) < 0.5) {
+        shown = { ...target };
+        write();
+        return;                       // caught up: stop the loop, do not idle-spin
+      }
+
+      shown.x += dx * 0.18;           // exponential ease — no library, no timeline to leak
+      shown.y += dy * 0.18;
+      write();
+      frame = requestAnimationFrame(tick);
+    };
+
+    const move = (e) => {
+      const r = rect();
+      target = { x: e.clientX - r.left, y: e.clientY - r.top };
+      if (!frame) frame = requestAnimationFrame(tick);
+    };
+
+    host.addEventListener('pointermove', move, { passive: true });
+
+    // Leaving the hero parks the reveal off-canvas rather than freezing it mid-air, so the hero
+    // returns to its designed still state instead of keeping a stray hole in it.
+    host.addEventListener('pointerleave', () => {
+      const r = rect();
+      target = { x: r.width / 2, y: -radius * 2 };
+      if (!frame) frame = requestAnimationFrame(tick);
+    }, { passive: true });
+
+    // Touch has no hover, so a cursor-reveal is invisible on a phone unless something drives it.
+    // Dragging works, and until the first touch the reveal sits at the designed anchor.
+    host.style.setProperty('--mx', '50%');
+    host.style.setProperty('--my', '45%');
+  }
+
+  // Test hook only — lets verify.mjs read the resolved mask position without scraping style text.
+  window.__revealPos = () => {
+    const s = getComputedStyle(document.querySelector('[data-cursor-reveal]'));
+    return { mx: s.getPropertyValue('--mx').trim(), my: s.getPropertyValue('--my').trim() };
+  };
+</script>

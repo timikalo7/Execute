@@ -537,6 +537,23 @@ Every build is assembled exclusively from this library, selected per project fro
 - **ModelScope** — https://modelscope.cn — Chinese AI ecosystem, models, datasets, research.
 - **Datasets:** Hugging Face Datasets (https://huggingface.co) · Google Dataset Search (https://datasetsearch.research.google.com).
 
+### Reading code you did not write
+- **opensrc** — https://github.com/vercel-labs/opensrc — **preferred;** Apache-2.0, zero runtime deps.
+  `npm i -g opensrc`, then `opensrc path <pkg>` prints the path to the package's **upstream source
+  tree** (`opensrc path zod` → `github.com/colinhacks/zod/4.4.3`), so an agent greps real `src/` with
+  its comments instead of a minified `dist/` or a README. Handles `pypi:`, `crates:` and `owner/repo`
+  specs too. **In this container it needs `no_proxy="" NO_PROXY=""`** or it cannot reach the registry;
+  `owner/repo` specs cannot work here at all (the proxy gates `api.github.com`).
+- **graphify** — https://github.com/Graphify-Labs/graphify — Apache-2.0/MIT, PyPI **`graphifyy`** (the
+  doubled `y` is the real name; single-`y` is unclaimed on PyPI, never install it). `graphify update
+  <path>` builds a local tree-sitter call graph — measured 16 files → 184 nodes / 438 edges / 2.05s,
+  **no API key and no network** — and `explain` / `path` / `query` turn it into "which twenty files
+  actually matter". Do **not** run `graphify install`: it writes third-party skill files into ~15
+  assistant config dirs, which is an owner decision. Verified line-accurate 2026-08-17.
+  **Use them as a pair — that is the skill `read-unfamiliar-code`:** pull the source, map it, then read
+  the files the map points at. This is the standing answer to the rule-2 case "building into an
+  existing / inherited / large codebase", where the agent's problem is that it has never read the code.
+
 ### Running AI Locally
 - **Ollama** — https://ollama.com — **preferred local runtime;** fast deployment, agents, RAG, production inference.
 - **LM Studio** — https://lmstudio.ai — local LLMs, OpenAI-compatible endpoints, desktop deployments.
@@ -557,6 +574,31 @@ Every build is assembled exclusively from this library, selected per project fro
 - **Runway** — https://runwayml.com — **preferred** · **Luma Dream Machine** — https://lumalabs.ai · **Pika** — https://pika.art · **Kaiber** — https://kaiber.ai · **Higgsfield** — https://higgsfield.ai.
 - **Synthesia** — https://synthesia.io — AI avatars, training videos, corporate content.
 - **Stack:** Runway → editing · Luma → cinematics · Pika → fast iteration · Synthesia → talking avatars.
+- **HyperFrames** — https://github.com/heygen-com/hyperframes — **the keyless fallback, and preferred
+  for anything an agent can express as a web page** (title cards, explainers, data/chart motion,
+  launch clips, captioned social cuts). Apache-2.0, `npx hyperframes init <dir> --example blank` then
+  `npx hyperframes render`. You write plain HTML + CSS + **GSAP** with `data-start` / `data-duration` /
+  `data-track-index` attributes; it seeks every frame in headless Chrome and encodes with FFmpeg, so
+  the same input gives the same MP4. **No API key, no account, no credits** — which is exactly what
+  the credit-gated rule above asks you to keep in reserve, since every other tool in this section
+  runs on a balance that has hit zero mid-build before. Needs Node 22+, FFmpeg **and `ffprobe`**
+  (`apt-get install -y ffmpeg`; the static pip build ships no ffprobe). Run `hyperframes doctor` first
+  and **`hyperframes telemetry disable` before anything else — telemetry is ON by default.** Note that
+  `init` also writes nine hyperframes skills into the user-level `~/.claude/skills/` without asking.
+  Verified 2026-08-17 by rendering 1920×1080 h264, 180 frames, 6.0s, in 20.8s — see `memory/tool-notes.md`.
+- **MoneyPrinterTurbo** — https://github.com/harry0703/MoneyPrinterTurbo — MIT, 112k★. Topic or
+  keyword in; script, matched stock footage (Pexels/Pixabay/Coverr), subtitles, background music and
+  TTS narration out, 9:16 and 16:9, batch variations, plus an Upload-Post integration that publishes
+  to TikTok / Instagram / YouTube Shorts. Keyless path exists (Edge TTS + Pexels + local Ollama), but
+  the LLM is the core, and a typical laptop without a capable GPU cannot host one usefully — so in
+  practice budget for an API key.
+  **SCOPED TO THE SIDE-HUSTLE DOMAIN ONLY** (`memory/user-profile.md` → Three domains). It is a
+  volume-content machine, which is legitimate for commercial work and is **not** to be pointed at
+  anything in the professional domain — a CV, a portfolio site, or anything shipped under the
+  owner's own name, where `owner-design-taste` governs and rejects exactly this
+  output. Use **HyperFrames** for anything designed; use this only where the assembly is the job.
+  Not installed, no account, no auto-publish configured — see `memory/tool-notes.md` for the full
+  verdict and the 2026-08-28 correction that re-scoped it.
 
 ### Voice & Speech
 - **ElevenLabs** — https://elevenlabs.io — **preferred** · **PlayHT** — https://play.ht.
@@ -569,6 +611,26 @@ Every build is assembled exclusively from this library, selected per project fro
 - **n8n** — https://n8n.io — **default** · **Zapier** — https://zapier.com · **Make** — https://make.com · **Bardeen** — https://bardeen.ai · **Pipedream** — https://pipedream.com.
 - **Logic:** n8n → default · Pipedream → API-heavy · Make → business automation · Zapier → fast deployment · Bardeen → browser workflows.
 
+### Social Scheduling & Distribution
+- **Postiz** — https://github.com/gitroomhq/postiz-app — **preferred, and self-host it.** AGPL-3.0 (the
+  LICENSE file really is the GNU AGPL v3 — checked, not assumed), 34.8k stars. One calendar across
+  X, Instagram, TikTok, YouTube, LinkedIn, Facebook, Reddit, Threads, Pinterest, Bluesky, Mastodon,
+  Discord, Slack and Dribbble, with analytics and AI post-drafting built in, plus a public API and an
+  n8n custom node so it drops into the Automation row above. Its README states *"At the moment, there
+  is no difference between the hosted version and the self-hosted version"* — the vendor's words, and
+  the reason it beats Buffer/Hypefury for anything Execute ships.
+  **The part that matters for an agent: it has a real CLI** — npm `postiz@2.0.16`, AGPL-3.0, binary
+  `postiz`, with `posts:create` / `posts:list` / `posts:status` / `integrations:list` /
+  `analytics:platform` / `upload`, authing by `POSTIZ_API_KEY` or OAuth2 device flow. So a build's
+  launch posts can be drafted and queued from a script instead of a dashboard.
+  **Two conditions of use:** (1) **AGPL-3.0 is network copyleft** — self-hosting it for the owner's own
+  posting is fine, but offering it as a service to other people triggers the source-offer obligation,
+  so never fold it into a product surface without deciding that deliberately; (2) **an unknown
+  subcommand exits 0 with no output** (measured — `postiz posts:definitely-not-a-command` prints
+  nothing and succeeds), so never branch a script on this CLI's exit code to validate a command; a
+  missing credential does correctly exit 1. Verified 2026-08-17; the server itself has NOT been
+  deployed here and no social account has been connected.
+
 ### Agents, Skills & Capability Libraries
 - **Awesome Agent Skills** — https://github.com/VoltAgent/awesome-agent-skills — reusable skills, coding/research workflows, automation patterns.
 - **Antigravity Awesome Skills** — https://github.com/sickn33/antigravity-awesome-skills — capability expansion, prompt patterns, templates.
@@ -577,6 +639,11 @@ Every build is assembled exclusively from this library, selected per project fro
 - **Ruflo** — https://github.com/ruvnet/ruflo — workflow execution, agent pipelines, task automation.
 - **LangGraph** — https://langchain.com/langgraph — **preferred production agent framework** · **CrewAI** — https://crewai.com · **LangChain** — https://langchain.com · **Open Interpreter** — https://openinterpreter.com · **AutoGPT** — https://github.com/Significant-Gravitas/AutoGPT.
 - **Browser Harness** — https://github.com/browser-use/browser-harness — **preferred browser testing;** automation, agent control, web testing, UI interaction.
+- **Revyl** — https://revyl.com — **preferred MOBILE end-to-end testing and verification** (owner's call, 2026-08-12). Cloud iOS simulators and Android emulators driven by an agent, with a video replay of the run. Accepts `.app` / `.apk`, and **connects to EAS to auto-import every new Expo build** — so the loop is `eas build` → Revyl imports → agent drives the app → you watch the replay. Has a CLI and an MCP server.
+
+  **It replaces EYEBALLING A CHANGE IN EXPO GO, not Expo Go itself.** Expo Go is the dev runtime for hot reload while writing code; Revyl is the gate that says whether the change actually works. Verifying a mobile build by opening it on your own phone and having a poke is the mobile equivalent of "it compiled, ship it" — the same self-attestation `visual-qa` exists to stop on the web. Any mobile project's definition of done runs through Revyl, and a Revyl run is evidence in the way a screenshot of your own phone is not.
+
+  **Needs an account and an API key**, so it is a `TODO(keys)` + `SETUP-KEYS.md` row on any mobile project, and the free-tier limits were NOT verified — check them before a plan depends on running hundreds of tests.
 - **Codex Plugin CC** — https://github.com/openai/codex-plugin-cc — Codex integrations, dev workflows.
 - **UI/UX skills:** UI UX Pro Max (https://github.com/nextlevelbuilder/ui-ux-pro-max-skill) · Impeccable (https://github.com/pbakaus/impeccable) · Taste Skill (https://github.com/Leonxlnx/taste-skill) · Awesome Design MD (https://github.com/VoltAgent/awesome-design-md).
 - **notebooklm-py** — https://github.com/teng-lin/notebooklm-py — research, document synthesis, knowledge extraction (depends on Google NotebookLM; not fully self-hosted).
@@ -585,6 +652,9 @@ Every build is assembled exclusively from this library, selected per project fro
 ### Web Scraping
 - **Firecrawl** — https://www.firecrawl.dev — **preferred** · **ScrapeGraph AI** — https://scrapegraph.ai · **SerpAPI** — https://serpapi.com · **Apify** — https://apify.com · **PhantomBuster** — https://phantombuster.com · **Browse AI** — https://browse.ai.
 - **Order:** 1) Firecrawl 2) ScrapeGraph 3) SerpAPI 4) Apify 5) PhantomBuster 6) Browse AI.
+- **Agent Reach** — https://github.com/Panniantong/Agent-Reach — MIT, free, no API keys. An *installer and doctor*, not a wrapper: it sets up the per-platform CLIs (yt-dlp, gh, twitter-cli, bili-cli) and a couple of MCP servers, routes each platform through a primary + fallback backend, and `agent-reach doctor` reports which channels actually work right now. Install: `pip install https://github.com/Panniantong/agent-reach/archive/main.zip && agent-reach install --env=auto`, or `npx skills add Panniantong/Agent-Reach@agent-reach`.
+  - **Zero setup:** any web URL, GitHub (public), **YouTube**, Bilibili, RSS, V2EX. **Needs a logged-in browser session or exported cookies:** Twitter/X, Reddit, Instagram, Facebook, LinkedIn, XiaoHongShu. Cookies stay on the machine per the docs — **unverified by us, and it is third-party code holding session credentials, so the cookie half is an OWNER decision, not an automatic one.**
+  - **Where it belongs: the owner's LOCAL machine, not this container.** This container is wiped between turns, so an install here evaporates, and the cookie-backed channels are exactly the ones ruled out on privacy grounds. The zero-setup half largely duplicates tooling already present (yt-dlp, gh). The real win is a local session that can read X/Reddit/LinkedIn threads the sandbox cannot reach.
 
 ### Search
 - **Exa** — https://exa.ai — **preferred search infrastructure;** AI-native search, research, agent retrieval.
@@ -615,9 +685,21 @@ Compose every interface from four tiers, in roughly this ratio:
 - **Base components — 10%:** shadcn/ui (or an equivalent headless component system).
 - **Advanced animated UI — 30%:** Aceternity UI — https://ui.aceternity.com
 - **Premium micro-interactions — 30%:** 21st.dev — https://21st.dev/community/components
-- **Experimental effects — 30%:** React Bits — https://21st.dev/community/components
+- **Experimental effects — 30%:** React Bits — https://reactbits.dev
+- **OriginKit** — https://www.originkit.dev — free animated component library (React + Framer), ~50 animated components and whole prebuilt **sections** (hero, pricing, features). Draws from the *advanced animated / premium micro-interaction* tiers above — it does not add a fifth tier or change the ratio, it is another source for those two. Copy the code, use the Framer module, or connect it as an **MCP server** so the agent reads component variables straight from the library instead of inventing an animation from scratch (their stated reason: far fewer tokens and less guessing than generating motion blind). Free; the MCP connector URL is on their `/integrations` page — **not verified from this container** (the site is JS-rendered and returns a shell to `curl`, and `/llms.txt`, `/mcp`, `/api/mcp` all 404), so read it off the page before wiring it. Everything from it still passes under `owner-design-taste` and `visual-qa` — a library component is a starting point, not a licence to ship an unreviewed animation.
+- **ThreeUI** — https://github.com/MengTo/threeui — MIT, ~4.3k stars. **Added 2026-08-28 on the owner's approval**, as another source for the *experimental effects* tier — it does not add a fifth tier or change the ratio. React Three Fiber 3D hero sections and scenes. Verified before adding: the reel that surfaced it said "160+ free 3D hero sections"; the repo actually ships **50 parent components** with 164 browseable variants, so the honest number is 50. Star count is what the repo page reported (GitHub's API is proxy-blocked from this container), not measured independently.
+  **Three.js weight is the whole caveat and it is a shipping condition, not a footnote.** R3F pulls three.js into the bundle, so anything built from this must: (a) be route-split or lazily mounted so the 3D scene never blocks first paint, (b) clear Core Web Vitals in `visual-qa` on the page that uses it — LCP and INP measured, not assumed, and (c) ship a **static fallback under `prefers-reduced-motion`**, which is a WCAG obligation here rather than a nicety since a spinning hero is vestibular-triggering. Same rule already carried by Vanta.js in this section, for the same reason.
+- **React Bits components named in the wild** — `DaWuiBsTrh3` (2026-08) showed a portfolio built from
+  **Text Pressure, Particle Typography, Lanyard, Infinite Menu** and an **ASCII** effect. All five are
+  React Bits, already the mandated experimental-effects tier above, so this adds **no new tool** — it
+  is a shortlist of which components in that library are worth reaching for first. The reel's own
+  links were gated behind a comment-for-source funnel and were never published.
 - **Icons:** Lucide — https://lucide.dev · **Maps (web):** Leaflet — https://leafletjs.com.
-- **Animation:** Framer Motion — https://www.framer.com/motion (**preferred**) + anime.js — https://animejs.com.
+- **Animation:** Framer Motion — https://www.framer.com/motion (**preferred for React component animation**) + anime.js — https://animejs.com (lightweight one-offs) + **GSAP** — https://gsap.com.
+  - **GSAP is now 100% free, including every formerly-paid Club plugin, and the standard licence covers commercial use** (Webflow acquired GSAP Oct 2024, made it free April 2025 — verified 2026-07). So `ScrollTrigger`, `SplitText`, `MorphSVG`, `DrawSVG`, `ScrollSmoother` are all available at no cost. No licence key, no Club membership.
+  - **When to reach for which:** Framer Motion for React component state/entrance/layout animation and `prefers-reduced-motion` handling (keep using `safe-scroll-reveal`); **GSAP + ScrollTrigger for complex scroll-driven timelines and pinned scrollytelling scenes** (the pinned-scene work that Framer Motion makes awkward); `SplitText` for per-character/word headline reveals; anime.js for a small standalone tween. Don't run two animation systems over the same element.
+  - Pairs with Lenis for smooth scroll. GSAP's own `ScrollSmoother` is an alternative to Lenis — pick one, never both.
+- **WebGL / animated backgrounds:** **Vanta.js** — https://www.vantajs.com — three.js-wrapped animated hero backgrounds (halo, waves, fog, net, birds), drop-in with a selector + options. Use **sparingly and never above the fold on mobile**: it ships three.js and runs a continuous WebGL loop — check the bundle and Core Web Vitals (INP/LCP) in `visual-qa` before shipping, provide a static fallback for `prefers-reduced-motion` and low-power devices, and prefer a real photograph or a CSS gradient when the effect isn't carrying the concept (`owner-design-taste` still governs).
 - **Specialized libraries:** Charts → Recharts (web) / Victory Native (mobile) · Maps → Leaflet (web) / react-native-maps (mobile) · Chat → Gifted Chat · Auth → Clerk (preferred), Sanity CMS Auth · Icons → Lucide React.
 
 ### Typography — chosen per project from the app's vibe
@@ -635,6 +717,13 @@ runs Fraunces (display) + Hanken Grotesk (body) + Space Mono (labels) — warm, 
 ### Design Direction
 Nature backgrounds with glassmorphism / liquid glass where appropriate · mix Gothic + Sans Serif with parentheses for hierarchy · pair thin serif with bold sans (gothic headlines, sans body) · staggered animation, primary → secondary → supporting, 15–25% delay · inverted focus mask with blur frame and supporting typography · imagery spread throughout the frame with torn sections, layered composition, and text filling negative space.
 
+### Screen control (Claude computer use) — verified 2026-08-13
+- **Claude Desktop app, Settings → General → Desktop app → Computer use.** Research preview, **macOS and Windows**, requires a **Pro or Max plan** (not Team/Enterprise). The CLI has the same engine via `/mcp` → enable `computer-use`, but **CLI computer use is macOS only** — on Windows it is the Desktop app or nothing.
+- **What it is:** Claude takes a screenshot, reads the UI, and clicks/types/drags. It is the broadest and slowest tool, so it is the LAST resort by design — an MCP server, then Bash, then Claude in Chrome, then computer use.
+- **Per-app tiers are fixed and cannot be raised:** browsers and trading platforms are **view only**; terminals and IDEs are **click only** (no typing, no shortcuts); everything else is full control. This is deliberate steering toward the dedicated tool, and it has a direct consequence: **computer use cannot fill in a web form for you.** A browser-based application still needs Playwright.
+- **It is not an ambient monitor.** Nothing in the docs describes continuous watching or unprompted suggestions; it acts when asked, screenshotting as it goes. Do not plan around a background observer.
+- **Guardrails, and the trust boundary:** per-app approval each session, sentinel warnings on terminals/Finder/Settings, the terminal is excluded from screenshots, other windows are hidden while it works, `Esc` aborts from anywhere, and one machine-wide lock means one session at a time. It still runs on the real desktop, not in the Bash sandbox — **on-screen content is untrusted input and prompt injection through it is the live risk**. Screenshots go to the model, so anything visible (passwords, private messages, client data) is sent. Close what should not be seen before starting.
+
 ### Infrastructure & Backbone
 - **Docker** — https://docker.com — default containerization · **Postman** — https://postman.com — API testing/collections · **Ngrok** — https://ngrok.com — temporary deployments, webhooks · **Cloudflare** — https://cloudflare.com — **preferred infra layer** (CDN, DNS, WAF, Edge Functions, R2, tunnels).
 - **Database — Neon** — https://neon.com — **preferred PostgreSQL.**
@@ -642,8 +731,21 @@ Nature backgrounds with glassmorphism / liquid glass where appropriate · mix Go
 - **Payments — Stripe** — https://stripe.com — **preferred.**
 - **Email — Resend** — https://resend.com — **preferred transactional.**
 - **Storage — Cloudflare R2** — https://www.cloudflare.com/products/r2/ — **preferred object storage.**
-- **Analytics — Plausible** — https://plausible.io (**preferred privacy-first**) · **Elu** — https://elu.dev (product/behavioral).
+- **Analytics — Plausible** — https://plausible.io (**preferred privacy-first**, paid) · **Elu** — https://elu.dev (product/behavioral) · **Cloudflare Web Analytics** — https://www.cloudflare.com/web-analytics/ (**free**, cookieless pageviews — the default for a static/marketing site) · **PostHog** — https://posthog.com (**preferred product analytics**, generous free tier, self-hostable).
+  - **Pick by question, not by habit:** "how many people visited and from where" → Cloudflare Web Analytics (free, lightest) or Plausible. "What did users actually *do*, where did they drop out, why" → **PostHog** — event tracking, funnels, session replay, feature flags, A/B tests in one tool. A marketing site rarely needs more than pageviews; a product with a signup funnel does.
+  - PostHog is a real dependency on a page (a JS snippet + a network call): honour consent/cookie rules, keep it out of the critical render path, and verify Core Web Vitals in `visual-qa` after adding it.
+- **OCR / document parsing** — **Baidu Unlimited OCR** — https://github.com/baidu/unlimited-ocr (open-source, MIT-class) — parses very long documents (thousands of pages) in one pass by treating memory like human forgetting; use when a build must ingest PDFs/scans/papers at length. Lighter alternatives for simple needs: `pdf-parse`/`pypdf` for text-layer PDFs, Tesseract for basic OCR. Reach for the heavy model only when the document is long or the layout is hard — it needs real compute.
 - **Hosting — frontend:** Vercel — https://vercel.com (**preferred**) / Netlify — https://www.netlify.com (alt). **Workflow hosting:** Railway — https://railway.com (**preferred** for n8n, APIs, background workers, databases).
+
+### 4.2.1 Student / .edu discounts — check FIRST if the owner is a student
+If the owner has a **student `.edu` account**, check whether it unlocks a credit-gated tool free or discounted before paying. When a plan step needs one of these, tell the owner (in the `YOU DO:` list) to **sign up with their student account**, not a personal one. Skip this section entirely if they are not a student.
+- **GitHub Student Developer Pack** — https://education.github.com/pack — the big bundle: free domain (Namecheap), DigitalOcean/Azure credits, many dev-tool credits. Get this first; it gates several others.
+- **Cursor for Students** — https://cursor.com/students — free Pro for a year (a personal editor; Execute itself runs on Claude Code).
+- **AWS Educate** — https://aws.amazon.com/education/awseducate/ — free cloud credits + labs (hosting/compute).
+- **Cloudflare for Students** — https://www.cloudflare.com/students/ — Workers/Pages/R2 + **free Web Analytics** (the keyless analytics we use for static sites).
+- **Stripe** — https://stripe.com — student/startup offers via the GitHub Pack.
+- **Deepnote** — https://deepnote.com — free student notebook tier (data/ML work).
+- Rule: student credits are credit-gated tools too — record the account in `SETUP-KEYS.md`, don't burn credits speculatively, keep a keyless fallback.
 
 ## 4.3 Execution Standards & Quality Gates
 

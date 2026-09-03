@@ -1,0 +1,35 @@
+{
+  "_why": "THE DEBT RATCHET. These markers are honest conventions — TODO(keys) scaffolds around a missing credential, NOT CHECKED refuses to report a skipped check as done. That honesty is why they grow: writing one is virtuous and nothing ever closes one. Each pile now carries a counted budget and a reason. Over budget FAILS the push; under budget ratchets down. The number can only go down. Ships with every pile at 0 and no history: these numbers are per-repo state, so they baseline against your own tree on first run.",
+  "budget": {
+    "todo-keys": {
+      "max": 0,
+      "reason": "A credential the build was scaffolded around, per the scaffold-around-and-continue rule (marker + a SETUP-KEYS.md row). Ships at 0: baseline it against YOUR tree on the first run, so the ratchet counts your debt and not someone else's.",
+      "reviewed": "seed"
+    },
+    "todo-credits": {
+      "max": 0,
+      "reason": "A step skipped because a credit balance would not cover it. Ships at 0: baseline it against YOUR tree on the first run, so the ratchet counts your debt and not someone else's.",
+      "reviewed": "seed"
+    },
+    "not-checked": {
+      "max": 0,
+      "reason": "A check that was skipped, reported honestly as skipped rather than as done. Ships at 0: baseline it against YOUR tree on the first run, so the ratchet counts your debt and not someone else's.",
+      "reviewed": "seed"
+    },
+    "unverified": {
+      "max": 0,
+      "reason": "A claim recorded without evidence behind it. Ships at 0: baseline it against YOUR tree on the first run, so the ratchet counts your debt and not someone else's.",
+      "reviewed": "seed"
+    },
+    "still-open": {
+      "max": 0,
+      "reason": "A decision or thread left unresolved. Ships at 0: baseline it against YOUR tree on the first run, so the ratchet counts your debt and not someone else's.",
+      "reviewed": "seed"
+    },
+    "your-call": {
+      "max": 0,
+      "reason": "A decision handed to a human and not yet made. Ships at 0: baseline it against YOUR tree on the first run, so the ratchet counts your debt and not someone else's.",
+      "reviewed": "seed"
+    }
+  }
+}

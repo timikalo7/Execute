@@ -18,8 +18,14 @@ c = re.sub(r"\x27[^\x27]*\x27", " <<SQ>> ", c)                              # si
 c = re.sub(r"\"(?:[^\"\\\\]|\\\\.)*\"", " <<DQ>> ", c)                      # double-quoted
 print(c)' 2>/dev/null || printf '%s' "$CMD")"
 
-# a real git-push invocation (start of command or after a separator), not the words in a string
-printf '%s' "$STRIPPED" | grep -qE '(^|[;&|]|&&|\|\|)[[:space:]]*git([[:space:]]+-C[[:space:]]+[^[:space:]]+)?[[:space:]]+push\b' || exit 0
+# a real git-push invocation (start of command or after a separator), not the words in a string.
+# One optional WRAPPER token is allowed before `git` (e.g. `rtk git push`, `time git push`,
+# `command git push`, `nice git push`). RTK — the token-compression proxy — rewrites `git push`
+# into `rtk git push` via its own PreToolUse hook; without this allowance the wrapped form would
+# slip past the guard and the gate would silently stop firing (evaluator decay,
+# memory/agent-graph-engineering.md §5). Over-matching here is the safe direction: a needless gate
+# run costs seconds, a missed one ships unaudited code.
+printf '%s' "$STRIPPED" | grep -qE '(^|[;&|]|&&|\|\|)[[:space:]]*([a-zA-Z0-9_.:/-]+[[:space:]]+)?git([[:space:]]+-C[[:space:]]+[^[:space:]]+)?[[:space:]]+push\b' || exit 0
 
 # The gate inspects the worktree/HEAD as they are NOW. If this same command also mutates git
 # state before pushing, the gate judges the wrong tree (misfired on a checkout+commit+push

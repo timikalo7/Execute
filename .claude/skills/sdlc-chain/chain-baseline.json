@@ -1,0 +1,4 @@
+{
+  "_why": "Projects built before the SDLC artifact chain existed. Reported, not blocked. A project NOT on this list must have an intact chain, so a new project cannot skip planning. Ships EMPTY: a fresh install has no legacy projects, so every project you build must have an intact chain. Entries are removed automatically and permanently once a chain becomes intact; the list only shrinks.",
+  "grandfathered": []
+}

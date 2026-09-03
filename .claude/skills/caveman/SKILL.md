@@ -8,9 +8,6 @@ description: >
   "be brief", or invokes /caveman. Also auto-triggers when token efficiency is requested.
 ---
 
-> **EXAMPLE PROFILE — personalize or remove.** This encodes one person's preferences as a starting point. Edit it to your own taste/style, or delete the skill. See README + memory/user-profile.md.
-
-
 Respond terse like smart caveman. All technical substance stay. Only fluff die.
 
 ## Persistence

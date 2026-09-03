@@ -1,0 +1,22 @@
+{
+  "_why": "THE RATCHET, keyed by scan scope. 71 warnings printed on every push for weeks and blocked nothing — detected, never prevented. Each rule now carries a reviewed count and a reason PER SCAN SCOPE, because the pre-push hook never scans the whole repo: it scans the root with exclusions, then each touched project. Exceeding a scope's budget FAILS the push; dropping below it rewrites that budget down. The number can only go down. A rule firing with no entry fails, so a new class of problem cannot arrive quietly. Ships with NO scopes: each auto-baselines on its first scan of your own tree, so the ratchet starts from your code rather than from someone else's reviewed counts.",
+  "scopes": {
+    ".": {
+      "upload-no-validation": {
+        "max": 2,
+        "reason": "auto-baselined on first scan of this scope",
+        "reviewed": "2026-09-03"
+      },
+      "shell-interpolation": {
+        "max": 1,
+        "reason": "auto-baselined on first scan of this scope",
+        "reviewed": "2026-09-03"
+      },
+      "dangerous-html": {
+        "max": 47,
+        "reason": "auto-baselined on first scan of this scope",
+        "reviewed": "2026-09-03"
+      }
+    }
+  }
+}

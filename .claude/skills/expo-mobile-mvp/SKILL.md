@@ -70,4 +70,27 @@ npx expo export --platform web   # catches native-module leaks into the web bund
 ```
 Then live smoke: start the app, hit `/api/health`, render the first screen. The web export is the cheapest catch for Metro bundling mistakes — keep it in the loop even for mobile-only products.
 
+### The gate: Revyl, not a poke around in Expo Go
+
+**Owner's call, 2026-08-12: mobile changes are verified by Revyl.** Opening the build on your own
+phone and having a look is the mobile equivalent of "it compiled, ship it" — it is exactly the
+self-attestation `visual-qa` exists to stop on the web, and it is the failure this repo has already
+paid for twice (a logo covering page text, a header that only broke at one scroll position).
+
+Expo Go stays where it belongs: the dev runtime for hot reload while you are writing code. It is not
+evidence.
+
+The loop:
+
+```
+eas build            → Revyl auto-imports every new build (connect EAS once)
+agent drives the app → cloud iOS simulator / Android emulator
+video replay + pass/fail  → THIS is the evidence a milestone is done
+```
+
+Revyl accepts `.app` / `.apk` and has a CLI and an MCP server. It **needs an account and an API
+key**, so on day one of any mobile project: leave a `TODO(keys)` and a `SETUP-KEYS.md` row, scaffold
+everything around it, and keep building. Free-tier limits are NOT verified — check them before a plan
+assumes hundreds of runs.
+
 For a worked reference, look for an existing Expo project under this repo's `projects/` (optional — the recipe above stands on its own).

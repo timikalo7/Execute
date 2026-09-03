@@ -40,7 +40,72 @@ Exit code is non-zero on any FAIL finding (so it can gate a commit / CI). It wri
 - **TLS verification disabled** — `rejectUnauthorized: false`, `NODE_TLS_REJECT_UNAUTHORIZED=0`.
 - **Committed `.env`** — any tracked `.env*` that isn't `.example/.sample/.template`.
 - **`npm audit`** — fails on high/critical advisories.
-- **Warnings (review, non-blocking):** insecure `http://`, `eval`/`new Function`, `dangerouslySetInnerHTML`, shell interpolation.
+- **Unverified payment webhooks (FAIL)** — a file *named* like a webhook endpoint that reads the
+  request body and never verifies a signature. Both halves of that trigger are deliberate: a server
+  that trusts a POST saying "payment succeeded" hands your product away to anyone who can guess the
+  URL, while the word "webhook" in a comment is not an endpoint and a blocking rule that fires on
+  prose gets bypassed. Cleared by `constructEvent`, `createHmac` + `timingSafeEqual`, `svix`,
+  `verifySignature`, or an `X-Hub-Signature` / `stripe-signature` read.
+- **Warnings (review, non-blocking):** insecure `http://`, `eval`/`new Function`, **XSS sinks**
+  (`dangerouslySetInnerHTML`, `.innerHTML`/`.outerHTML` assignment, `document.write`, `v-html`,
+  jQuery `.html()`), shell interpolation, and **file uploads with no visible type or size check**.
+  The last two are warnings *on purpose*: a line-based regex cannot tell whether an assigned value
+  is user input, and upload validation legitimately lives in middleware this file cannot see. A FAIL
+  that fires on `el.innerHTML = ""` would be switched off, and a gate that is switched off checks
+  nothing.
+
+## Accepted advisories — when there is genuinely no fix
+
+Some advisories cannot be fixed because upstream has not published one. `projects/example-app` is the real
+case: 22 flagged packages, **all** tracing to two DoS advisories in `image-size` — and `image-size@2.0.2`
+is the latest published version while the advisory covers `<=2.0.2`. npm's suggested remedy was
+`react-native@0.72.17`, a bundler old enough to predate the dependency: a multi-year downgrade, not a
+patch.
+
+**Do not lower `--audit-level` to get past this.** That switches the check off for everything,
+including the next advisory, which might be a real one. Instead the project carries a
+`security-exceptions.json`:
+
+```json
+{ "accepted": [ {
+  "advisory": "https://github.com/advisories/GHSA-w3rx-r6r6-pgpr",
+  "package": "image-size",
+  "reason": "no fix exists — 2.0.2 is latest and the advisory covers <=2.0.2; build-time only, not shipped",
+  "accepted_on": "2026-08-18",
+  "expires": "2026-11-18"
+} ] }
+```
+
+Three properties make this a gate rather than a mute button: it is **per-advisory** (anything not
+named still fails), it **expires** (an entry past its review date fails *louder* than the advisory
+did), and it **names a reason** a reviewer can disagree with.
+
+The gate also now reports **root** advisories rather than every package that inherits one. Counting
+inheritance turned two real problems into twenty-two and buried the two that mattered.
+
+## Checking the checker
+
+`memory/agent-graph-engineering.md` §3: a gate only ever seen to PASS is not proven to work, and
+evaluator decay is this repo's biggest live risk. So the gate has its own test, and every rule is
+asserted in **both** directions — the vulnerable fixture must fail, the fixed fixture must pass:
+
+```bash
+node .claude/skills/security-gate/self-test.mjs     # 21 assertions
+
+The exception mechanism is proven separately, against a real project rather than a synthetic fixture,
+because it needs a real `npm audit` result. Measured on `projects/example-app` 2026-08-18 — **both
+advisories accepted → pass; remove one → FAIL; expire them → FAIL with `security-exception-expired`;
+delete the file → FAIL with 2 unaccepted roots.** Re-run those four by editing the project's
+`security-exceptions.json` and running the scanner against it.
+```
+
+Fixtures are written to a temp dir and deleted, and their dangerous payloads are **assembled at
+runtime rather than written as literals**. That is not cosmetic. The first version of the test wrote
+a real-shaped AWS key and a literal `rejectUnauthorized: false` into its own source, and the repo's
+pre-push gate — correctly — blocked the push on the file that proves the gate works. Exempting the
+test file would have been the "weaken the gate so the push passes" move the rules forbid, and would
+have left a permanent hole shaped like *any file named self-test*. Splitting the literal keeps the
+gate at full strength and the temp fixture still receives the real dangerous string.
 
 A pass here is necessary, not sufficient — a script can't test authz or multi-tenancy. For the
 reasoning half (IDOR, cross-tenant isolation, mass assignment, business-logic abuse, injection
@@ -72,3 +137,13 @@ Record the verdict (covered / N-A / deferred-with-reason) in the checklist's Pas
 ## Notes
 - General (any project/stack). Heuristic scanners flag for human judgement — a warning isn't proof
   of a bug, and a pass isn't proof of safety; it removes the *easy* misses that slip through "looks fine".
+
+
+## When a finding fires, the fix is already written
+
+`webhook-unverified`, `upload-no-validation` and the `dangerous-html` warnings each have a
+working, tested reference implementation in **`.claude/skills/not-get-sued-101/`**. Every OTHER
+rule that reports an absence — `shell-interpolation`, `sql-interpolation`,
+`no-rate-limit-reference`, `token-in-localstorage`, `fetch-no-timeout`, `tls-verify-disabled`,
+`eval-usage` and the secret rules — is covered by **`.claude/skills/gate-protections/`**.
+This gate detects the absence; those skills are the presence. Do not hand-roll a third version.

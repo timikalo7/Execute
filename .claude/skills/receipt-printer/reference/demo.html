@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Receipt printer — reference demo</title>
+<style>
+  :root {
+    --card: #17171a; --card-line: #2a2a30; --ink: #f2f2f4; --muted: #9a9aa4;
+    --paper: #fbfbf9; --paper-ink: #1a1a1c; --paper-faint: #8b8b90; --ok: #4ade80;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100svh; display: grid; place-items: center;
+    background: #0c0c0e; color: var(--ink);
+    font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, sans-serif;
+    padding: 40px 16px;
+  }
+  .stage { width: min(420px, 100%); }
+
+  /* The card the receipt prints OUT of. */
+  .card {
+    background: var(--card); border: 1px solid var(--card-line);
+    border-radius: 16px; padding: 14px;
+  }
+  .card__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+  .card__title { font-weight: 600; }
+  .card__sub, .card__total-label { color: var(--muted); font-size: 13px; }
+  .card__total { font-size: 20px; font-weight: 600; text-align: right; }
+  .card__status { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 14px; color: var(--muted); }
+  .dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--muted); border-top-color: transparent; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .card.is-done .dot { animation: none; border: 0; background: var(--ok); position: relative; }
+  .card.is-done .dot::after { content: "✓"; position: absolute; inset: 0; display: grid; place-items: center; font-size: 10px; color: #0c0c0e; }
+  .card.is-done .card__status { color: var(--ink); }
+
+  /* THE SLOT. `overflow: hidden` on a zero-height box is what makes the paper
+     appear to emerge from inside the card rather than slide in from off-screen —
+     the paper is always there, the slot just grows to reveal it. */
+  .slot {
+    overflow: hidden; height: 0;
+    transition: height 1500ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+  .card.is-done + .slot { height: var(--paper-h, 400px); }
+
+  /* The drop shadow lives on a WRAPPER, because the mask below clips the paper —
+     a box-shadow on a masked element is cut off with it, a filter on its parent
+     follows the torn silhouette. */
+  .paper-wrap {
+    margin: 0 10px;
+    filter: drop-shadow(0 18px 34px rgba(0,0,0,0.45));
+    transform: translateY(-100%);
+    transition: transform 1500ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+  .card.is-done + .slot .paper-wrap { transform: translateY(0); }
+
+  .paper {
+    --tear: 9px;
+    position: relative; padding: 20px 18px calc(26px + var(--tear));
+    background: var(--paper); color: var(--paper-ink);
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px;
+
+    /* The torn bottom edge. Two mask layers: the body of the paper, plus a strip of
+       repeating triangles along the bottom. One element, no image, scales to any
+       width. (The first attempt used a single repeating-conic-gradient and rendered
+       a flat edge — the sawtooth needs its own strip with an explicit height.) */
+    -webkit-mask:
+      linear-gradient(#000 0 0) top / 100% calc(100% - var(--tear)) no-repeat,
+      conic-gradient(from -45deg at bottom, #0000 0 90deg, #000 0) bottom / 14px var(--tear) repeat-x;
+    mask:
+      linear-gradient(#000 0 0) top / 100% calc(100% - var(--tear)) no-repeat,
+      conic-gradient(from -45deg at bottom, #0000 0 90deg, #000 0) bottom / 14px var(--tear) repeat-x;
+  }
+
+  .mark { width: 26px; height: 26px; background: var(--paper-ink); color: var(--paper); display: grid; place-items: center; margin: 0 auto 16px; font-size: 13px; }
+  .rule { border: 0; border-top: 1px dashed #cfcfd2; margin: 12px 0; }
+  .row { display: flex; justify-content: space-between; gap: 12px; }
+  .row + .row { margin-top: 5px; }
+  .faint { color: var(--paper-faint); }
+  .total { font-weight: 700; font-size: 14px; }
+  .meta { font-size: 10.5px; }
+  .barcode { margin-top: 16px; height: 42px; width: 100%;
+    background: repeating-linear-gradient(90deg, var(--paper-ink) 0 2px, transparent 2px 4px, var(--paper-ink) 4px 5px, transparent 5px 9px, var(--paper-ink) 9px 12px, transparent 12px 14px); }
+  .barcode-no { text-align: center; letter-spacing: 0.2em; font-size: 10px; margin-top: 5px; }
+
+  /* A receipt is a RECORD. Someone will print it, and the print must not be a
+     dark card with a cropped animation in it. */
+  @media print {
+    body { background: #fff; padding: 0; }
+    .card { display: none; }
+    .slot { height: auto !important; overflow: visible; }
+    .paper-wrap { transform: none !important; filter: none; margin: 0; }
+  }
+
+  /* Reduced motion: the receipt is simply THERE. The information is the point;
+     the printing is decoration, and decoration is what this setting turns off. */
+  @media (prefers-reduced-motion: reduce) {
+    .slot, .paper-wrap { transition: none !important; }
+    .dot { animation: none !important; }
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="card" id="card">
+      <div class="card__head">
+        <div>
+          <div class="card__title">Pro plan</div>
+          <div class="card__sub">Annual subscription</div>
+        </div>
+        <div>
+          <div class="card__total-label">Total</div>
+          <div class="card__total">£230.40</div>
+        </div>
+      </div>
+      <p class="card__status" id="status" role="status"><span class="dot" aria-hidden="true"></span> Processing your order</p>
+    </div>
+
+    <div class="slot" id="slot">
+      <!-- The receipt is real, semantic text — not an image, not canvas. A screen
+           reader, a text selection and Ctrl+P all have to work on it. -->
+      <div class="paper-wrap">
+      <article class="paper" id="paper" aria-label="Receipt">
+        <div class="mark" aria-hidden="true">✦</div>
+        <div class="row"><span>PRO PLAN</span><span>£192.00</span></div>
+        <div class="row"><span class="faint">Annual subscription</span><span></span></div>
+        <hr class="rule">
+        <div class="row"><span class="faint">Subtotal</span><span>£192.00</span></div>
+        <div class="row"><span class="faint">Tax</span><span>£38.40</span></div>
+        <hr class="rule">
+        <div class="row total"><span>TOTAL PAID</span><span>£230.40</span></div>
+        <hr class="rule">
+        <div class="row meta"><span class="faint">Order</span><span>OKB-2048</span></div>
+        <div class="row meta"><span class="faint">Paid with</span><span>Visa •••• 4242</span></div>
+        <div class="row meta"><span class="faint">Date</span><span>27 Aug 2026 · 14:32</span></div>
+        <div class="barcode" aria-hidden="true"></div>
+        <div class="barcode-no faint" aria-hidden="true">OKB-2048</div>
+      </article>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // Measure the paper so the slot animates to its real height. A hard-coded height
+  // clips a long receipt and leaves a gap under a short one.
+  const paper = document.getElementById("paper");
+  const slot = document.getElementById("slot");
+  slot.style.setProperty("--paper-h", paper.offsetHeight + 12 + "px");
+
+  // In a real app this fires when the PAYMENT CONFIRMS — never on a timer, and
+  // never optimistically. Printing a receipt for a charge that has not settled is
+  // the dark pattern this component is most likely to become.
+  function complete() {
+    document.getElementById("card").classList.add("is-done");
+    // Built as DOM, not assigned as an HTML string. There is no user input in this line,
+    // so it was never exploitable — but `not-get-sued-101` says step 1 is "don't render
+    // HTML", and a reference implementation that ignores its own sibling skill is not a
+    // reference. It also stops security-gate warning on a file meant to be copied.
+    const st = document.getElementById("status");
+    st.textContent = "";
+    const d = document.createElement("span");
+    d.className = "dot";
+    d.setAttribute("aria-hidden", "true");
+    st.append(d, " Order complete");
+  }
+  if (new URLSearchParams(location.search).has("instant")) complete();
+  else setTimeout(complete, 900);
+</script>
+</body>
+</html>

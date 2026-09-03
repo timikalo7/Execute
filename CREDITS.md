@@ -10,6 +10,20 @@ or removed, open an issue.
   `design-taste-frontend`, `premium-scroll-flow` — adapted from **Leonxlnx/taste-skill** (MIT).
 - **caveman** (terse output-compression skill) — adapted from **JuliusBrussee/caveman** (MIT). Only
   the SKILL.md was vendored; its hooks/installers were deliberately not bundled (supply-chain rule).
+- **grilling / grill-me** (the interrogation method behind `discovery-interrogation`) — adapted from
+  **mattpocock/skills** (MIT). Markdown only; `LICENSE-mattpocock` ships beside the skill.
+- **claude-seo** (the SEO/GEO audit methodology behind `pre-publish-audit`) — adapted from
+  **AgricIDaniel/claude-seo** (MIT). Markdown only: 25 sub-skill and 18 sub-agent playbooks in
+  `.claude/skill-library/claude-seo/`, with the upstream `LICENSE-AgriciDaniel` and each skill's own
+  `LICENSE.txt`. Its installers, `bin/` and hooks were deliberately not bundled, and its bundled
+  scripts and paid extensions were not vendored — anything they would have checked is reported as
+  NOT CHECKED rather than as a pass.
+- **ponytail / ponytail-debt** (do-less / YAGNI mode) — adapted from **DietrichGebert/ponytail**
+  (MIT). Two of the six upstream skills were vendored deliberately; `LICENSE-ponytail` ships beside
+  them.
+- **scroll-world** (scroll-scrubbed cinematic landing pages) — adapted from **cth9191/scroll-world**
+  (MIT). `SKILL.md`, its references, and the browser-side scrub engine; `knockout.py` and the
+  marketplace manifests were not vendored. `LICENSE-scroll-world` ships beside it.
 
 See `.claude/skills/VENDORED-SKILLS.md` for exactly what was and wasn't vendored, and why.
 

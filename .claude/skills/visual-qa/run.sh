@@ -9,6 +9,12 @@
 # Usage:
 #   bash .claude/skills/visual-qa/run.sh [project-dir] [--no-build] [--widths 390 768 1440] [--routes / /about ...]
 #   (project-dir defaults to the current directory; routes auto-detected from out/ if omitted)
+#   Baseline screenshot regression (baselines: <project>/.visual-baselines, COMMIT them):
+#     first run creates them; later runs diff and report. Extra flags, all forwarded to the sweep:
+#     --regression-threshold 1   diff % above which a shot is a reported regression (default 1)
+#     --fail-on-regression       make a regression exit non-zero (default: loud report, no fail)
+#     --update-baselines         bless the current screenshots as the new baselines
+#     --baseline-width 480       width the full-page shots are downscaled to before storing/diffing
 #   --no-build: reuse the existing verified build instead of rebuilding. Use when Turbopack on the
 #   slow workspace FS builds nondeterministically (missing chunk → 500) — build+verify by hand,
 #   THEN sweep the exact artifact you verified.
@@ -21,7 +27,7 @@ cd "$PROJ" || { echo "vqa: no such dir $PROJ" >&2; exit 2; }
 [ -f package.json ] || { echo "vqa: no package.json in $PROJ" >&2; exit 2; }
 
 # Kill any server a previous (crashed/killed) run left behind — orphans squat ports and make a
-# later sweep measure the WRONG SITE (happened: a an example marketing site server answered a example-web sweep).
+# later sweep measure the WRONG SITE (happened: a an example marketing site server answered a an example marketing site sweep).
 PIDFILE=/tmp/vqa-srv.pid
 if [ -f "$PIDFILE" ]; then
   OLD="$(cat "$PIDFILE" 2>/dev/null)"
@@ -112,6 +118,9 @@ for k in sorted(m.get('routes', {})):
 fi
 printf '%s\0' "${ARGS[@]:-}" | grep -qz -- '--widths' || ARGS+=(--widths 390 768 1440)
 printf '%s\0' "${ARGS[@]:-}" | grep -qz -- '--src' || ARGS+=(--src "$PROJ/src")
+# Baseline screenshot regression: baselines live WITH the project and are committed.
+# Pass --update-baselines to bless an intentional redesign, --fail-on-regression to hard-gate.
+printf '%s\0' "${ARGS[@]:-}" | grep -qz -- '--baseline-dir' || ARGS+=(--baseline-dir "$PROJ/.visual-baselines")
 
 echo "vqa: sweeping… (budget ${SWEEP_TIMEOUT}s)"
 timeout --kill-after=10 "$SWEEP_TIMEOUT" node "$HERE/sweep.mjs" --base "http://localhost:$PORT" "${ARGS[@]}"

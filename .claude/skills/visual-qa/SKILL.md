@@ -1,13 +1,14 @@
 ---
 name: visual-qa
-version: 1.0.0
+version: 1.1.0
 description: >
   Front-end visual QA you actually run, not eyeball. Load this whenever you build or change a
   web UI — a new section/component, a hero, nav, animation, image, or layout — before saying it
   works or committing. Drives the built+served site through headless Chromium across widths,
   AUTO-SCROLLS every pinned/tall scene to multiple positions (so text-over-art overlaps and
   nav-contrast flips can't hide between stops), runs axe-core for WCAG AA, checks horizontal
-  overflow and console errors, and forces a per-photo human look. Pairs with owner-design-taste.
+  overflow and console errors, DIFFS every page against a committed screenshot baseline to catch
+  unintended visual regressions, and forces a per-photo human look. Pairs with owner-design-taste.
 allowed-tools:
   - Bash
   - Read
@@ -23,6 +24,32 @@ Eyeballing one screenshot at one width misses the bugs that get caught in review
 that doesn't flip the nav white, body text colliding with an SVG only at one scroll position, a
 portrait cropped to "just the head", a 6px overflow on iPhone SE. This skill makes those checks
 mechanical so they stop slipping.
+
+
+## Known flakiness: auto-rotating content makes the baseline diff cry wolf
+
+Measured on `an example marketing site`, 2026-08-18. A Next patch bump reported a **3.12% regression on home @768px**.
+Reading both images showed the layout, type, spacing and buttons pixel-identical and only the hero
+**photograph** different — a champagne toast in one, a graduation in the other.
+
+The cause was in the page, not the upgrade: `src/components/sections/hero.tsx` cycles three images on a
+`setInterval(..., 4600)`, so the screenshot captures whichever slide happens to be showing. **The diff
+was real and the regression was not.**
+
+This matters more than one false positive: a check that reports a regression on every run trains
+everyone to click past it, and the next report will be a real one. That is evaluator decay, which
+`memory/agent-graph-engineering.md` names as this repo's biggest live risk.
+
+**Until it is fixed, when a baseline diff appears: read the two images before believing the percentage.**
+Rotating heroes, carousels, animated counters, live clocks and randomised testimonials all produce this.
+
+**The fix, not yet taken because it is a real design decision:** `sweep.mjs` creates its contexts with
+`browser.newContext({ viewport })` and could pass `reducedMotion: "reduce"`. Well-built components
+already stop animating under it — the an example app hero literally does `if (reduce) return;` and never starts
+its interval — so it would freeze the carousel deterministically. **The cost is that the gate would then
+only ever see the reduced-motion rendering**, and this skill exists partly to catch reduced-motion
+hydration bugs, so switching every capture to it needs deciding rather than defaulting.
+
 
 ## When to run
 - After ANY new interactive/visual component or scene.
@@ -45,13 +72,80 @@ for debugging the wrapper.
 
 `run.sh` also owns its environment so the sweep can't measure the wrong thing (all learned the hard
 way): it pidfile-kills any server a crashed previous run left behind, refuses a busy port (walks up
-to a free one — an orphaned server once made a example-web sweep silently measure the an example marketing site
+to a free one — an orphaned server once made a an example marketing site sweep silently measure the an example marketing site
 site, every route 404), aborts loudly if the server never answers, and time-boxes every stage
 (`VQA_BUILD_TIMEOUT` 600s / `VQA_TIMEOUT` 480s via `timeout(1)`) so a hang can't wedge the session
 or leave orphans. If you ever manage the server yourself: **kill by pidfile or port
 (`fuser -k PORT/tcp`), never `pkill -f <pattern>`** — a pattern that appears in your own command
 line kills your own shell (exit 144), and the `[s]tart` trick doesn't save you when the literal
 string also appears elsewhere in the same command.
+
+## Baseline screenshot regression (catches the change you didn't mean to make)
+
+Overflow, a11y and console checks all answer "is this page broken?". None of them answer "did
+editing a shared component silently change an unrelated page?". The baseline diff does: every
+route × width **full-page** screenshot is compared, pixel for pixel, against a **committed**
+baseline. Full-page, not just the viewport, because that class of regression usually lands below the
+fold — a viewport-only baseline of this site saw a shared-token change as 0.03%, the full-page
+baseline saw it as 40%.
+
+**Semantics — first run establishes, later runs compare:**
+- No baseline for a shot yet ⇒ it is written to `projects/<project>/.visual-baselines/<page>-<width>.png`
+  and reported as `baseline created`. A first run **never fails** on baselines.
+- Baseline exists ⇒ the new shot is diffed and reported per shot: `unchanged`, `changed 0.42%
+  (under threshold)`, or `REGRESSION 6.31%`.
+- **Regressions are reported LOUDLY but do NOT fail the run by default.** Deliberate redesigns
+  legitimately change pixels; a checker that cries wolf on every intentional change gets bypassed,
+  and a bypassed gate is worse than no gate. Opt in to a hard failure with `--fail-on-regression`
+  (do this on a branch where nothing visual is *supposed* to change).
+- **A comparison that cannot be made always fails the run** — unreadable/undecodable baseline,
+  unwritable baselines dir. `BASELINE CHECK FAILED TO RUN … — treating as FAIL. A skipped check is
+  not a pass.` (`memory/agent-graph-engineering.md` §5: skips are loud, never green.)
+- A **size** change (viewport/page dimensions differ) is reported as a 100% regression, never
+  swallowed.
+
+**When a regression is found** the sweep writes, next to the baseline:
+`<page>-<width>.diff.png` (current shot greyed out, every changed pixel painted magenta) and
+`<page>-<width>.current.png` (the raw new shot, so you can flip baseline ↔ current). Both paths are
+printed absolute. Both are **gitignored** by a `.gitignore` the sweep drops into `.visual-baselines/`
+— they're output. The **baselines themselves are committed**: they are the reference.
+
+**Flags** (accepted by `run.sh` and forwarded, or passed to `sweep.mjs` directly):
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `--regression-threshold <pct>` | `1` | diff **percent of pixels** above which a shot is a reported regression |
+| `--fail-on-regression` | off | make a regression exit non-zero (hard gate) |
+| `--update-baselines` | off | re-accept the current screenshots as the new baselines — this is how an intentional redesign is blessed |
+| `--baseline-dir <dir>` | `<project>/.visual-baselines` (set by `run.sh`) | where baselines live |
+| `--baseline-width <px>` | `480` | full-page shots are box-downscaled to this width before storing/comparing — keeps committed bytes sane and averages away subpixel noise. Lower it if repo size matters; raise it for finer sensitivity |
+| `VQA_PIXEL_TOLERANCE` env | `12` | per-channel 0–255 delta below which a pixel counts as unchanged (antialiasing noise) |
+
+```bash
+# normal run — creates baselines the first time, diffs every time after
+bash .claude/skills/visual-qa/run.sh projects/example-marketing-site
+# after an intentional redesign: look at the diffs, then bless them
+bash .claude/skills/visual-qa/run.sh projects/example-marketing-site --update-baselines
+git add projects/example-marketing-site/.visual-baselines   # baselines are source-of-truth: COMMIT them
+# a branch where nothing visual should change: make it a hard gate
+bash .claude/skills/visual-qa/run.sh projects/example-marketing-site --fail-on-regression
+```
+
+Only the settled **full-page** shot per route × width is baselined. The auto-scrolled `scene*` frames
+are deliberately excluded: their content depends on where a scroll-driven animation happens to be
+when the shot is taken, which makes them noisy references that produce false regressions.
+
+**Why the threshold is 1%, measured not guessed.** Determinism is the whole game — a checker that
+reports 52% on an unchanged site gets ignored. The shot is taken *after* the settle pass (every
+`whileInView` reveal triggered, outstanding image decodes awaited, `scrollTo(0,0)` re-asserted three
+times because Lenis eases toward the target and a hero 0.4px off rest resamples the photo), with
+Playwright `animations: "disabled"`. On an example marketing site that puts the run-to-run noise floor at **≤0.21%**
+across 30 shots (most exactly 0.00%), while a one-token CSS change registered **4.6–56%**. 1% sits
+between the two with room either way. If a page keeps a permanently rAF-animating element above the
+fold it can float toward the noise ceiling — check the diff image before raising the threshold.
+
+Implementation note: the pixel comparison is stdlib-only (`.claude/skills/visual-qa/pixel-diff.mjs`
+decodes/encodes PNG with `node:zlib`) — no `pixelmatch`/`pngjs` dependency was added.
 
 ### Turbopack build flake → the `--no-build` flow
 On a slow FS, `next build` occasionally emits a chunk graph referencing a chunk that doesn't exist
@@ -106,6 +200,11 @@ run.sh already handles the leftover link.)
   build the sweep serves never logs, so only a source scan catches it. Keep the initial deterministic;
   let reduced-motion only zero the transition. (Shipped once on Reveal/MaskReveal/ScaleInImage.)
 - Every photo: legible title/eyebrow, legible nav/logo over it, no bad crop at 390/768/1440.
+- **Unintended visual change** — every route × width is pixel-diffed against its committed baseline
+  (see "Baseline screenshot regression" above). Reported loudly; only a *broken* comparison fails by
+  default, because intentional redesigns move pixels. Never ignore a `REGRESSION` line without
+  opening the diff image: either it's the change you meant (then `--update-baselines` and commit the
+  new baselines) or it's the bug this check exists to catch.
 
 ## axe realities that produce non-obvious fails
 - **`color-contrast` applies to `aria-hidden` text too** — it's a visual rule. Decorative pale text
