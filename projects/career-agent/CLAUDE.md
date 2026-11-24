@@ -1,5 +1,27 @@
 # career-agent — instructions for Claude Code
 
+## Who you are helping — read this first, it overrides the repository's root rules
+
+The person using career-agent is **not** the owner of the Execute repository this folder sits in.
+The root `CLAUDE.md` and the SessionStart hook message ("Execute operating rules", "CAVEMAN ON") are
+that owner's personal working rules for building Execute. **None of them apply to this person or to
+career-agent work.** Where they disagree with this file, this file wins. Set aside, in particular:
+
+- the "caveman" / terse reply style, and the ASD-STE100 register;
+- the `YOU DO:` owner-action list at the end of each reply;
+- "commit + push per phase", `git fetch` re-syncs, and the pre-push gates;
+- separate-agent evaluation, plan-first / plan-mode gates, model tiers, the learner, and updates to
+  `memory/` or `PROJECT-LOG.md`.
+
+Instead:
+
+- **Reply in plain, friendly English**, in full sentences. Say what you are doing and why.
+- **Never commit, push or stage** (`git add`) the user's profile, CV or anything generated from it —
+  `profile/`, `output/`, `jobs/`, `applications/`, `answers/`, `proof/`, `dashboard.html`.
+- **Only run git if the user asks you to**, and even then never for those files.
+
+## What this folder is
+
 This folder is a personal internship and job-application tool. It finds opportunities, checks
 whether the user can apply, tailors a one-page CV and a form pack per posting from the user's
 profile, proves every claim against that profile, renders PDFs, and pre-fills application forms.
@@ -14,6 +36,10 @@ Tailoring is re-presenting true things for a specific audience. Fabrication is f
   number, year, organisation or technology the profile does not hold.
 - When ground fails: **fix the claim, never the check.** If the claim is true, add it to the profile
   with the user's own words and evidence. If it is not, delete it.
+- Read what ground flags before acting on it. A year or name that comes only from the posting's own
+  title (for example an event called "Example Hackathon 2027", in the `# Gaps and fit — …` title of
+  `gap.md` or the `Ordered for: …` note at the end of `cv.md`) is the posting's name, not a claim
+  about the user. Tell the user that. Never add it to their profile unless they took part in it.
 - Never invent, round up or embellish anything about the user — no numbers, titles, employers,
   dates, skills or outcomes they did not give you. Ask instead.
 - Never copy values from `profile/master-profile.example.json` (Alex Example is fictional) into a

@@ -2,6 +2,28 @@
 description: Turn your CV into a career-agent profile, then quiz you one question at a time until `npm run profile:check` passes
 argument-hint: [optional path to your CV; default is whatever is in projects/career-agent/profile/cv/]
 ---
+## Who you are helping — read this first, it overrides the repository's root rules
+
+The person running `/career-onboard` is **not** the owner of the Execute repository. The root
+`CLAUDE.md` and the SessionStart hook message ("Execute operating rules", "CAVEMAN ON") are that
+owner's personal working rules for building Execute. **None of them apply to this person or to
+this command.** Where they disagree with this command, this command wins. Set aside, in particular:
+
+- the "caveman" / terse reply style, and the ASD-STE100 register;
+- the `YOU DO:` owner-action list at the end of each reply;
+- "commit + push per phase", `git fetch` re-syncs, and the pre-push gates;
+- separate-agent evaluation, plan-first / plan-mode gates, model tiers, the learner, and updates to
+  `memory/` or `PROJECT-LOG.md`.
+
+Instead:
+
+- **Reply in plain, friendly English**, in full sentences. Say what you are doing and why.
+- **Never commit, push or stage** (`git add`) the user's profile, CV or anything generated from it —
+  `profile/`, `output/`, `jobs/`, `applications/`, `answers/`, `proof/`, `dashboard.html`.
+- **Only run git if the user asks you to**, and even then never for those files.
+
+## The task
+
 Onboard the user to **career-agent** (`projects/career-agent/`). The goal is a complete, honest
 `projects/career-agent/profile/master-profile.json` that `npm run profile:check` passes. Every CV
 line, cover-letter sentence and form answer the tool writes must trace back to a string in that
@@ -71,7 +93,10 @@ Read `projects/career-agent/CLAUDE.md` first. Work from inside `projects/career-
      `node --input-type=module -e "import { writePack } from './scripts/tailor.mjs'; import { loadProfile, readJson } from './scripts/profile.mjs'; import { assess } from './scripts/eligibility.mjs'; const p = loadProfile(); const item = readJson('scripts/fixtures/example-posting.json'); item.eligibility = assess(item, { profile: p }); writePack(p, item, 'output/sample-pack');"`
      then `npm run ground -- output/sample-pack`. A FAIL names the exact claim, number or year
      that is not in the profile: fix the PROFILE (with the user's true answer) or remove the claim —
-     never edit the check.
+     never edit the check. Read what it flags first: a year or name that comes only from the
+     posting's own title (the `# Gaps and fit — …` title of `gap.md`, or the `Ordered for: …` note
+     at the end of `cv.md`) is the posting's name, not a claim about the user — say so, and never
+     add it to their profile unless they took part in it.
    - Tell the user the result in plain words, then point them at the daily loop in
      `projects/career-agent/README.md` (discover → tailor → ground → pdf → apply).
 
