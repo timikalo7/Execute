@@ -74,3 +74,16 @@ before; only the education dates the evaluator reported now fail the check.
 **Not checked.** The override block inside a real Claude Code session (whether it outweighs the
 SessionStart hook in practice); the PowerShell fix on a Windows machine; the time estimate with a
 real attendee. A separate evaluation of these fixes has not been run yet.
+
+**Evaluation of the workshop fixes.** A fresh-context evaluator ran each fix: README Git step and
+install URLs (200), the PowerShell and posting-title troubleshooting rows (the ground case reproduced
+with "Example Hackathon 2035"), setup and profile:check rejecting free-text, `2027-13`, `27-09`,
+empty and "present"-as-start education dates while accepting `YYYY-MM` and an end of "present",
+`npm test` passing on a clean checkout, ground-check.mjs unchanged, the privacy scan passing (and
+failing on a planted phone number), and one live `claude -p` from the repository root replying in
+plain English with no owner-style footer. Not checked: Windows PowerShell, macOS commands, multi-turn
+Claude Code behaviour, a real attendee's timing. Minor leftovers: "Present" with a capital P is
+rejected with a confusing message; an education end of "present" triggers a misleading
+graduation-year recommendation.
+
+Evaluation (separate agent): PASS — all five fixes hold under real runs; npm test passes clean; ground-check unchanged; privacy scan passes and can fail; a live claude -p replied in plain English.
