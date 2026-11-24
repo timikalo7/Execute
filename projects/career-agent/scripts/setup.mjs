@@ -312,7 +312,7 @@ export const SAMPLE_ANSWERS = [
   "Sam Tester", "sam@example.org", "+44 20 7946 0999", "Leeds, UK", "Maths student who builds small data tools.",
   "UK citizen; no visa sponsorship needed", "United Kingdom, UK, England", "Data analyst intern, Software developer intern",
   "Leeds, York", "summer", "2031",
-  "Testshire University", "BSc Mathematics", "Mathematics", "2028-09", "2032-06", "2032", "Third year of four", "Predicted 2:1, 65% average",
+  "Testshire University", "BSc Mathematics", "Mathematics", "2027-09", "2032-06", "2032", "Third year of four", "Predicted 2:1, 65% average",
   // experience: one entry, one achievement
   "yes", "Testshire Council", "Data Volunteer", "2029-06", "2029-09", "Leeds", "Summer volunteering with the council data team.",
   "Cleaned 3 years of bus-stop survey data for a public map", "Python, Excel", "Council volunteer letter", "", "no",
