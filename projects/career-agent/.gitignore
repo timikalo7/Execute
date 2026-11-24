@@ -1,0 +1,18 @@
+# Your personal data stays on your machine. Everything below is either YOUR profile and CV, or
+# something generated from them. None of it belongs in a git repository — and in a public fork with
+# a scheduled workflow it would be published to the internet.
+profile/master-profile.json
+profile/cv/*
+!profile/cv/README.md
+output/
+jobs/
+applications/
+answers/
+dashboard.html
+COWORK-QUEUE.md
+proof/
+.browser-profile/
+.env
+.env.*
+!.env.example
+node_modules/

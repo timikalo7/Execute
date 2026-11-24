@@ -1,0 +1,4 @@
+# Batch files must keep CRLF endings. Git's autocrlf can normalise them to LF on
+# checkout, and a .cmd with LF endings breaks `set /p` prompts on Windows in ways
+# that look like the script hanging rather than like a line-ending problem.
+*.cmd text eol=crlf

@@ -126,7 +126,7 @@ Vibe-coded apps fail these predictably, and agents "say it's fine" without check
   tests, web export clean (14/23). PASS.
 - **2026-06-22 — Exam-readiness banner + syllabus parser (no-API OS gap closed).** Pure
   `nextExamReadiness()` + `parseSyllabusTopics()` (input bounded: ≤20 topics, ≤60 chars, dedup — item 1),
-  local UI/engine only, no new surface. Timi-tutor skill installed (user-authored, no scripts → safe to
+  local UI/engine only, no new surface. a user-authored tutor skill installed (user-authored, no scripts → safe to
   auto-load; supply-chain item 30 respected). 73/73 tests, web export clean. PASS.
 - **2026-06-22 — Store-launch sprint, Phase A.1–A.2.** Native store config (app.json bundle IDs + permission
   strings + plugins, eas.json with TODO(keys) submit profiles, .gitignore hardened for signing secrets).

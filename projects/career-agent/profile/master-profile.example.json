@@ -1,0 +1,340 @@
+{
+  "_README": [
+    "This is a COMPLETE FICTIONAL EXAMPLE. Alex Example does not exist, and every organisation named here is invented.",
+    "Your own profile lives at profile/master-profile.json, which is gitignored. Create it with `npm run setup` (a terminal quiz) or `/career-onboard` in Claude Code, then run `npm run profile:check`.",
+    "THE RULE: every CV line, cover-letter sentence and form answer this tool writes must trace back to a string in your profile. `npm run ground` fails any document that claims a number, year, organisation or technology that is not in here.",
+    "So put the numbers and outcomes HERE, with evidence. If it is not in the profile, the tool cannot say it — and that is the point.",
+    "Every section has a `_help` string saying what it is for and which script reads it. Keys starting with `_` are notes: the grounding check ignores them."
+  ],
+  "identity": {
+    "_help": "Who you are and how to reach you. Read by cv-html.mjs (the CV header), answers.mjs and cowork-brief.mjs (form field tables), apply.mjs (fills name/email/phone/address/links into forms) and render-pdf.mjs (checks your name and email survive PDF text extraction).",
+    "name": "Alex Example",
+    "email": "alex@example.com",
+    "phone": "+44 20 7946 0123",
+    "location": "Manchester, UK",
+    "links": {
+      "portfolio": "https://alex.example.com",
+      "github": "https://github.com/alex-example",
+      "linkedin": "https://www.linkedin.com/in/alex-example"
+    },
+    "headline": "Computer science student who builds data pipelines and small web services that other students actually use.",
+    "work_authorisation": "UK citizen with the full right to work in the UK; no visa sponsorship required",
+    "address": {
+      "_help": "Only used to fill address boxes on application forms (apply.mjs, answers.mjs). Leave it out if you would rather type it yourself.",
+      "line1": "1 Example Street",
+      "city": "Manchester",
+      "postcode": "M1 1AA",
+      "country": "United Kingdom"
+    }
+  },
+  "target": {
+    "_help": "What you are looking for. discover.mjs filters and scores postings with it, eligibility.mjs decides what you can apply to (location, intake year, work authorisation), bar.mjs ranks against any offer you already hold, and dashboard.mjs / cowork-brief.mjs label the board with it.",
+    "roles": ["Software engineer intern", "Data engineering intern", "Backend developer placement"],
+    "sector": "Technology",
+    "locations": ["Manchester", "Leeds", "London"],
+    "countries": ["United Kingdom", "UK", "England", "Scotland", "Wales"],
+    "remote_ok": true,
+    "timing": {
+      "_help": "The intake you are applying for. eligibility.mjs rules out postings that only mention an earlier year; discover.mjs uses the year to pick the right internship lists and scores postings that name it.",
+      "intake_season": "summer",
+      "intake_year": 2030,
+      "earliest_start": "June 2030"
+    },
+    "bar_to_beat": {
+      "_help": "An offer you already hold, if any. bar.mjs ranks every posting against it: same kind of employer = a sideways move, a stronger employer, your home city or more pay = an upgrade. Set the whole key to null if you hold no offer.",
+      "employer": "Example Bank",
+      "employer_class": "bank",
+      "hourly_usd": 30,
+      "note": "Summer 2030 technology internship offer, already accepted in principle."
+    },
+    "bar": {
+      "_help": "How bar.mjs judges an upgrade. home_cities count as an upgrade on their own; anywhere else only counts when the employer itself is the upgrade. min_pay is an annual figure in your currency, used only when a posting states pay.",
+      "home_cities": ["Manchester"],
+      "acceptable_cities": ["Leeds", "London"],
+      "min_pay": 0,
+      "intern_only": true
+    },
+    "boost_keywords": ["data", "backend", "python", "platform"],
+    "events": {
+      "_help": "eligibility.mjs: an event outside your target locations is ruled out unless the posting says travel is funded. Set require_travel_funding to false to keep unfunded events abroad for a manual look instead.",
+      "require_travel_funding": true
+    }
+  },
+  "education": [
+    {
+      "_help": "Your degree FIRST, then school. cv-html.mjs prints both; answers.mjs and apply.mjs fill university, degree, subject, grade and graduation year into forms; eligibility.mjs uses graduation_year against the intake year to decide final-year-only and penultimate-year schemes.",
+      "id": "edu-university",
+      "institution": "University of Exampleton",
+      "qualification": "BSc (Hons) Computer Science",
+      "subject": "Computer Science",
+      "start": "2027-09",
+      "end": "2031-06",
+      "graduation_year": 2031,
+      "year_of_study": "Third year of four (2029-2030)",
+      "grade": "On track for a First, 72% average",
+      "relevant_modules": ["Algorithms and Data Structures", "Databases", "Operating Systems", "Machine Learning"],
+      "evidence": "Student record, year two transcript"
+    },
+    {
+      "id": "edu-school",
+      "institution": "Exampleton Sixth Form College",
+      "qualification": "A-levels",
+      "start": "2025-09",
+      "end": "2027-06",
+      "grade": "A-levels: Mathematics A*, Computer Science A, Physics A",
+      "evidence": "Exam certificates"
+    }
+  ],
+  "experience": [
+    {
+      "_help": "Technical work, research and paid roles. Each achievement is ONE concrete claim with the number or outcome behind it, the skills it used, and where it can be checked. cv-html.mjs picks the achievements that best answer each posting; ground-check.mjs only allows claims that are written here. cv_weight breaks ties (higher first); cv_section \"research\" puts an entry under its own Research heading.",
+      "id": "exp-data-lab",
+      "organisation": "Exampleton Data Lab",
+      "title": "Undergraduate Research Assistant",
+      "start": "2029-06",
+      "end": "present",
+      "location": "Manchester",
+      "summary": "Part-time research assistant on a survey-analytics project.",
+      "achievements": [
+        {
+          "claim": "Built a Python pipeline that cleans 40,000 survey responses a week for the lab's dashboards",
+          "skills": ["Python", "Pandas", "SQL"],
+          "evidence": "Supervisor email, lab repository"
+        },
+        {
+          "claim": "Cut the nightly reporting job from 50 minutes to 12 minutes by moving the heavy joins into PostgreSQL views",
+          "skills": ["PostgreSQL", "SQL", "Performance"],
+          "evidence": "Lab wiki change log"
+        }
+      ],
+      "cv_weight": 3,
+      "cv_section": "research"
+    },
+    {
+      "id": "exp-campus-it",
+      "organisation": "Exampleton Students' Union",
+      "title": "IT Helpdesk Assistant",
+      "start": "2028-09",
+      "end": "2029-05",
+      "location": "Manchester",
+      "summary": "Part-time helpdesk role during term.",
+      "achievements": [
+        {
+          "claim": "Wrote a Bash script that automated laptop set-up for 60 new volunteers",
+          "skills": ["Bash", "Linux", "Automation"],
+          "evidence": "Union IT manager reference"
+        }
+      ],
+      "cv_weight": 1
+    }
+  ],
+  "projects": [
+    {
+      "_help": "Things you built on your own or in a team. Same rules as experience: one concrete claim per achievement, with numbers, skills and evidence.",
+      "id": "proj-pocket-ledger",
+      "name": "Pocket Ledger",
+      "start": "2028-10",
+      "end": "2029-03",
+      "summary": "A budgeting web app for students.",
+      "achievements": [
+        {
+          "claim": "Built Pocket Ledger, a budgeting web app in TypeScript and React used by 120 students in its first term",
+          "skills": ["TypeScript", "React", "Node.js"],
+          "evidence": "https://github.com/alex-example/pocket-ledger"
+        }
+      ],
+      "evidence": "https://github.com/alex-example/pocket-ledger"
+    },
+    {
+      "id": "proj-room-finder",
+      "name": "Room Finder Bot",
+      "start": "2029-01",
+      "end": "2029-02",
+      "summary": "A chat bot that finds free study rooms.",
+      "achievements": [
+        {
+          "claim": "Shipped a chat bot that answers free-study-room questions from a Docker-hosted API, handling 900 queries in exam season",
+          "skills": ["Python", "Docker", "APIs"],
+          "evidence": "https://github.com/alex-example/room-finder"
+        }
+      ],
+      "evidence": "https://github.com/alex-example/room-finder"
+    }
+  ],
+  "skills": {
+    "_help": "Every skill you can evidence, in groups. cv-html.mjs prints one line per group and pulls skills the posting names to the front; select.mjs matches postings against these names. A skill that is not here cannot appear in a generated CV.",
+    "programming": [
+      { "name": "Python", "evidence": "Data lab pipeline, Room Finder Bot" },
+      { "name": "TypeScript", "evidence": "Pocket Ledger" },
+      { "name": "SQL", "evidence": "Data lab reporting views" },
+      { "name": "Java", "evidence": "Year one and two coursework" },
+      { "name": "Bash", "evidence": "Helpdesk set-up script" }
+    ],
+    "web_and_cloud": [
+      { "name": "React", "evidence": "Pocket Ledger" },
+      { "name": "Node.js", "evidence": "Pocket Ledger API" },
+      { "name": "Docker", "evidence": "Room Finder Bot" }
+    ],
+    "data_and_pipelines": [
+      { "name": "Pandas", "evidence": "Data lab pipeline" },
+      { "name": "PostgreSQL", "evidence": "Data lab reporting views" }
+    ],
+    "tools_and_practices": [
+      { "name": "Git", "evidence": "All projects" },
+      { "name": "Linux", "evidence": "Helpdesk, lab servers" }
+    ]
+  },
+  "leadership": [
+    {
+      "_help": "Leading, teaching, organising. answers.mjs uses these for the teamwork question; cv-html.mjs prints them under Leadership & Collaboration.",
+      "id": "lead-workshops",
+      "organisation": "Exampleton Computing Society",
+      "title": "Workshop Lead",
+      "start": "2028-10",
+      "end": "2029-05",
+      "achievements": [
+        {
+          "claim": "Ran 6 beginner Python workshops for 30 first-year students",
+          "skills": ["Teaching", "Python", "Communication"],
+          "evidence": "Society event pages"
+        }
+      ]
+    }
+  ],
+  "achievements_other": [
+    {
+      "_help": "Prizes, certificates and training. cv-html.mjs prints them as one line under Training & Achievements.",
+      "id": "ach-hackathon",
+      "claim": "Runner-up, Exampleton Hack weekend hackathon",
+      "date": "2029-02",
+      "evidence": "Organiser announcement"
+    }
+  ],
+  "gaps_known": {
+    "_help": "What you genuinely do NOT have that postings often ask for. tailor.mjs prints these in every gap analysis and answers.mjs offers them for the 'weakness' question. Honest gaps make the rest of the application believable.",
+    "items": [
+      "No production on-call experience yet",
+      "Have not used Kubernetes or Terraform",
+      "No professional experience in C++ or Rust"
+    ]
+  },
+  "voice": {
+    "_help": "How you write. Not read by the scripts; /career-onboard and any drafting you ask Claude for use it so answers sound like you. Paste a paragraph or two you wrote yourself.",
+    "samples": [
+      "I like taking a job that someone does by hand every week and making it run on its own, then checking it still gives the right answer a month later."
+    ],
+    "avoid": ["passionate", "synergy", "rockstar", "leverage"]
+  },
+  "stories": {
+    "_help": "Longer answers in your own words, used verbatim by answers.mjs and apply.mjs. Every number or name in a story must also be true, because the grounding check reads it as part of your profile.",
+    "hardest_challenge": "The hardest problem I have worked on was the nightly reporting job at Exampleton Data Lab. It took 50 minutes and sometimes did not finish before the morning. I first assumed the Python code was slow, but timing each stage showed most of the wait was the database joins. Moving the heavy joins into PostgreSQL views cut the job to 12 minutes, and I added a check that compares the totals with the old output so the faster version could be trusted."
+  },
+  "off_cv": {
+    "_help": "True things that are not on the CV but may be used in answers.",
+    "items": [
+      {
+        "id": "off-tutoring",
+        "claim": "Tutor a younger student in GCSE maths once a week",
+        "evidence": "Ongoing since 2028"
+      }
+    ]
+  },
+  "referees": {
+    "_help": "People who agreed to give a reference. answers.mjs lists them (outside the paste blocks); cowork-brief.mjs tells an assistant not to list anyone whose consent does not start with \"given\". scope: technical, non_technical or both.",
+    "items": [
+      {
+        "id": "ref-supervisor",
+        "name": "Dr Sam Sample",
+        "email": "sam.sample@example.com",
+        "phone": "+44 20 7946 0456",
+        "position": "Lecturer in Data Science",
+        "organisation": "University of Exampleton",
+        "relationship": "Research supervisor at the data lab",
+        "covers": "Research assistant work",
+        "consent": "given 2029-09-01",
+        "scope": "technical"
+      },
+      {
+        "id": "ref-cafe-manager",
+        "name": "Jo Placeholder",
+        "email": "jo.placeholder@example.com",
+        "phone": "+44 20 7946 0789",
+        "position": "Cafe Manager",
+        "organisation": "Example Coffee Co.",
+        "relationship": "Line manager at the cafe",
+        "covers": "Barista shifts",
+        "consent": "given 2029-09-03",
+        "scope": "non_technical"
+      }
+    ]
+  },
+  "experience_non_technical": {
+    "_help": "Shift work, hospitality, retail, volunteering. Used for the non-technical CV variant (jobs/manual.json rows with \"cv\": \"normal\") and its answer sheet. Same rules: concrete claims with numbers.",
+    "items": [
+      {
+        "id": "ntx-barista",
+        "organisation": "Example Coffee Co.",
+        "title": "Barista",
+        "start": "2027-07",
+        "end": "present",
+        "location": "Manchester",
+        "summary": "Weekend and holiday shifts in a busy city-centre cafe.",
+        "achievements": [
+          {
+            "claim": "Served up to 200 customers on a Saturday shift and balanced the till at close",
+            "skills": ["Customer service", "Cash handling"],
+            "evidence": "Manager reference"
+          },
+          {
+            "claim": "Trained 4 new starters on the coffee machine and the closing checklist",
+            "skills": ["Training", "Leadership"],
+            "evidence": "Manager reference"
+          }
+        ]
+      },
+      {
+        "id": "ntx-stewarding",
+        "organisation": "Exampleton Arena",
+        "title": "Event Steward",
+        "start": "2028-06",
+        "end": "2028-09",
+        "location": "Manchester",
+        "summary": "Summer stewarding at outdoor events.",
+        "achievements": [
+          {
+            "claim": "Directed crowds of 3,000 in and out of outdoor concerts in all weather",
+            "skills": ["Crowd management", "Working outdoors"],
+            "evidence": "Staffing agency record"
+          }
+        ]
+      }
+    ]
+  },
+  "skills_non_technical": {
+    "_help": "Non-technical skills with a line of detail each.",
+    "items": [
+      { "name": "Cash handling", "detail": "Balanced the till at close every Saturday shift" },
+      { "name": "Customer service", "detail": "Busy weekend cafe shifts" }
+    ]
+  },
+  "interests": {
+    "_help": "Optional. Not printed by default.",
+    "items": ["Cycling", "Board games"]
+  },
+  "logistics": {
+    "_help": "Screening answers for forms. answers.mjs, cowork-brief.mjs and the non-technical gap analysis read these instead of guessing. Date of birth, National Insurance and passport numbers are deliberately NOT stored anywhere — type them on the day.",
+    "own_transport": { "answer": "No", "detail": "No car; I travel by bus and train" },
+    "over_18": { "answer": "Yes", "detail": "Over 18" },
+    "availability": "Evenings, weekends and university holidays; full time over summer",
+    "notice_period": "None, I am a student",
+    "right_to_work_document": "UK passport",
+    "background_check": { "answer": "None", "detail": "No DBS or PVG certificate held" },
+    "licences": { "answer": "No", "detail": "No personal licence or door-supervisor badge" },
+    "physical_work": "Directed crowds of 3,000 in and out of outdoor concerts in all weather"
+  },
+  "cv_files": {
+    "_help": "Optional. Your own non-technical CV as a PDF, used verbatim for rows marked \"cv\": \"normal\". normal-cv.mjs extracts its text and checks your name, email, institution and each must_include string survive extraction.",
+    "normal_pdf": "profile/cv/Alex-Example-CV-Normal.pdf",
+    "normal_must_include": ["Barista", "Event Steward"]
+  }
+}
