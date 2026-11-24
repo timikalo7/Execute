@@ -14,24 +14,30 @@ fills in what it can — and stops. You read it and press submit.
 Everything generated here — every CV bullet, every line of a form answer — must trace back to a
 string in `profile/master-profile.json`. That is a runnable check, not a guideline:
 `npm run ground -- output/<slug>` fails if a document names a number, year, organisation or
-technology that is not in your profile. **A fail means something was invented. Fix the claim, never
-the check.** If it is true, add it to your profile with evidence.
+technology that is not in your profile. **A fail usually means something was invented — read what it
+flags. Fix the claim, never the check.** If it is true, add it to your profile with evidence. (A year
+or name in the posting's own title can be flagged too — see Troubleshooting.)
 
 So the quality of everything this tool writes is capped by your profile. Put the numbers and outcomes
 there: "built an app" can never become "built an app used by 120 students" unless you wrote the 120.
 
 ## Workshop quickstart
 
-You need about 15 minutes, a terminal, and your current CV.
+You need about 30–45 minutes, a terminal, and your current CV. Most of that time is the profile in
+step 4: the terminal quiz asks about 45 numbered questions, plus follow-ups for each job, project
+and achievement you add.
 
-**1. Install Node.js 20 or newer** (the LTS version is fine).
+**1. Install Node.js 20 or newer (the LTS version is fine) and Git.**
 
-- **Windows:** download the LTS installer from <https://nodejs.org/en/download> and accept the
-  defaults. Then open a **new** PowerShell window.
-- **macOS:** download the LTS installer from <https://nodejs.org/en/download>, or with Homebrew:
-  `brew install node`. Then open a new Terminal window.
+- **Windows:** download the Node LTS installer from <https://nodejs.org/en/download> and accept the
+  defaults. Download Git from <https://git-scm.com/download/win> and accept the defaults. Then open a
+  **new** PowerShell window.
+- **macOS:** download the Node LTS installer from <https://nodejs.org/en/download>, or with Homebrew:
+  `brew install node`. For Git, run `xcode-select --install`, or with Homebrew: `brew install git`.
+  Then open a new Terminal window.
 
-Check it: `node --version` should print `v20` or higher.
+Check both: `node --version` should print `v20` or higher, and `git --version` should print a
+version number.
 
 **2. Get the code and install it**
 
@@ -57,7 +63,11 @@ profile.
 
 - **In Claude Code:** open the repository in Claude Code and run **`/career-onboard`**. It reads
   your CV, fills in only what the CV states, then asks you one question at a time — especially for
-  the numbers, outcomes and dates behind each bullet — until the profile is complete.
+  the numbers, outcomes and dates behind each bullet — until the profile is complete. The repository
+  also holds its owner's own Claude Code rules (very short replies, a `YOU DO:` list at the end,
+  "commit and push"). They are for the owner, not for you, and `/career-onboard` tells Claude to set
+  them aside. If Claude still answers like that, or offers to commit or push, tell it: "I am using
+  career-agent — reply in plain English and do not run git."
 - **Without AI:** run **`npm run setup`**. A terminal quiz asks for every field, one question at a
   time, with the reason it is needed. Type `skip` to leave one for later; it saves after every answer,
   so you can stop and run it again.
@@ -121,10 +131,13 @@ board for you.
 | You see | Do this |
 |---|---|
 | `'node' is not recognized` / `node: command not found` | Install Node 20+ (step 1), then open a **new** terminal — old windows do not see the new PATH. |
+| `'git' is not recognized` / `git: command not found` | Install Git (step 1), then open a **new** terminal. |
+| PowerShell: `npm.ps1 cannot be loaded because running scripts is disabled on this system` | Windows blocks PowerShell scripts by default. Run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once (answer `Y`), then run the command again. Or use `npm.cmd` in place of `npm` (and `npx.cmd` in place of `npx`), which this setting does not block. |
 | `career-agent: no profile at profile/master-profile.json` | Run `npm run setup` or `/career-onboard`, then `npm run profile:check`. |
 | `browserType.launch: Executable doesn't exist at …` | Run `npx playwright install chromium`. On a locked-down machine with Chrome installed, set `CAREER_AGENT_CHROMIUM` to its path instead. |
 | `career-agent: no jobs/found.json yet` | Run `npm run discover` first (or `npm run daily`). |
 | `RESULT: FAIL — N claim(s) not traceable to the profile` | The named number, year or name is not in your profile. If it is true, add it to the profile with evidence; if not, remove it. Never edit the check. |
+| `ground` flags a year or name that comes from the posting's own title, e.g. `year "2027" — profile covers no work in this year` for an event called "Example Hackathon 2027" | That is the posting's name, not your claim. Search the flagged file for it. In the `# Gaps and fit — …` title of `gap.md`, or the `Ordered for: …` note at the end of `cv.md` (a note for you, not in the file you upload), it is only the posting's name. In a CV line about you, remove it from that line — or, if you took part in the event, add the event to your profile. |
 | `There was an error verifying your application` on a form | The site's own script had not finished setting up the form. Reload the page, wait, and run `apply` again (it checks for this and says so). |
 | `npm WARN EBADENGINE`, or a `SyntaxError` when a script starts | Your Node is older than 20. Install the current LTS and open a new terminal. |
 
