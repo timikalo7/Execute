@@ -52,13 +52,20 @@ const nonEmpty = (v) => typeof v === "string" && v.trim().length > 0;
 const listOk = (v) => Array.isArray(v) && v.some((x) => nonEmpty(String(x ?? "")));
 const DATE_RE = /^(\d{4}-(0[1-9]|1[0-2])|present)$/;
 
+/** A `YYYY-MM` date; with allowPresent, the word "present" too. The same rule setup.mjs asks with. */
+export function isDate(v, allowPresent = false) {
+  const s = typeof v === "string" ? v.trim() : "";
+  return DATE_RE.test(s) && (allowPresent || s !== "present");
+}
+
 /**
  * THE SCHEMA — every field the scripts read, in the order `npm run setup` asks for them.
  *
  *   level   required: a script breaks or writes something wrong without it → exit 1
  *           recommended: works without, but a form box or a ranking signal is lost
- *   kind    text | number | list (comma-separated) | lines (one item per answer) | pair
- *           (answer + detail) | experience | projects | leadership | skills | offer | referees
+ *   kind    text | number | date (YYYY-MM; `allowPresent` also accepts "present") | list
+ *           (comma-separated) | lines (one item per answer) | pair (answer + detail) | experience |
+ *           projects | leadership | skills | offer | referees
  */
 export const FIELDS = [
   // ---- identity
@@ -78,8 +85,8 @@ export const FIELDS = [
   { path: "education[0].institution", level: "required", kind: "text", ask: "Your university (or current institution)", why: "CV education line, every form's university box, and the PDF readability check." },
   { path: "education[0].qualification", level: "required", kind: "text", ask: "Your degree as written on a CV (e.g. BSc (Hons) Computer Science)", why: "CV education line and the 'degree' box on forms." },
   { path: "education[0].subject", level: "required", kind: "text", ask: "Your subject on its own (e.g. Computer Science)", why: "The 'discipline / major / field of study' box on forms (apply.mjs)." },
-  { path: "education[0].start", level: "required", kind: "text", ask: "When the degree started (YYYY-MM)", why: "CV dates and 'course dates' on forms." },
-  { path: "education[0].end", level: "required", kind: "text", ask: "When it ends or ended (YYYY-MM)", why: "CV dates and 'expected graduation' on forms; its year is what the grounding check allows you to mention." },
+  { path: "education[0].start", level: "required", kind: "date", ask: "When the degree started (YYYY-MM, e.g. 2027-09)", why: "CV dates and 'course dates' on forms." },
+  { path: "education[0].end", level: "required", kind: "date", allowPresent: true, ask: "When it ends or ended (YYYY-MM, e.g. 2031-06)", why: "CV dates and 'expected graduation' on forms; its year is what the grounding check allows you to mention." },
   { path: "education[0].graduation_year", level: "required", kind: "number", ask: "Your graduation year (e.g. 2031)", why: "eligibility.mjs compares it with your intake year to decide final-year-only and penultimate-year schemes; apply.mjs fills it into graduation-year boxes." },
   { path: "education[0].year_of_study", level: "required", kind: "text", ask: "Your year of study at the time you apply (e.g. Third year of four)", why: "The 'year of study' box on forms (answers.mjs, cowork-brief.mjs)." },
   { path: "education[0].grade", level: "required", kind: "text", ask: "Your current or predicted grade, as you can evidence it (e.g. On track for a First, 72% average)", why: "CV education line, the grade box on forms, and 'why you' answers. Only numbers written here may appear in generated text." },
@@ -117,6 +124,7 @@ export function answered(profile, f) {
   const v = get(profile, f.path);
   switch (f.kind) {
     case "text": return nonEmpty(v);
+    case "date": return isDate(v, f.allowPresent);
     case "number": return Number.isFinite(Number(v)) && v !== null && v !== "" && Number(v) > 0;
     case "list": case "lines": return listOk(v);
     case "pair": return Boolean(v && nonEmpty(v.answer));
@@ -158,7 +166,14 @@ export function checkProfile(profile) {
   const weak = [];
   for (const f of FIELDS) {
     if (f.kind === "experience" || f.kind === "projects") continue; // checked together below
-    if (!answered(p, f)) (f.level === "required" ? missing : weak).push({ path: f.path, why: f.why });
+    if (answered(p, f)) continue;
+    // A date that is filled in but not YYYY-MM fails like a missing one, and says what it holds:
+    // the CV would print the free text as written ("sometime in autumn – Jun 2031").
+    const v = get(p, f.path);
+    const why = f.kind === "date" && nonEmpty(v)
+      ? `"${v}" is not YYYY-MM${f.allowPresent ? ' (or "present")' : ""}, so the CV would print it as written and forms cannot read it. ${f.why}`
+      : f.why;
+    (f.level === "required" ? missing : weak).push({ path: f.path, why });
   }
   // Experience OR projects: at least one entry between them, and every entry complete.
   const hasEntries = (p.experience || []).length + (p.projects || []).length > 0;
@@ -244,6 +259,19 @@ function selfTest() {
   mismatch.education[0].graduation_year = 2099;
   check("a graduation year that disagrees with the end date is flagged", checkProfile(mismatch).weak.some((w) => w.path === "education[0].graduation_year"));
 
+  // Education dates: free text FAILS the check (it would print on the CV as written), naming the
+  // field and the value. "present" is an end word only; month 13 is not a month.
+  for (const [k, bad] of [["start", "sometime in autumn"], ["end", "summer-ish"], ["start", "present"], ["end", "2031-13"]]) {
+    const p = clone();
+    p.education[0][k] = bad;
+    const r = checkProfile(p);
+    check(`education[0].${k} = "${bad}" is a REQUIRED gap that names the field and the value`, r.missing.length === 1 && r.missing[0].path === `education[0].${k}` && r.missing[0].why.includes(`"${bad}"`), JSON.stringify(r.missing));
+  }
+  const goodDates = clone();
+  goodDates.education[0].start = "2026-09";
+  goodDates.education[0].end = "present";
+  check("a YYYY-MM education start and an end of 'present' are accepted", checkProfile(goodDates).missing.length === 0, JSON.stringify(checkProfile(goodDates).missing));
+
   // The CLI, both ways: no profile file at all → exit 1 naming fields; the example → exit 0.
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "profilecheck-"));
   const cli = (env) => spawnSync(process.execPath, [new URL(import.meta.url).pathname], { env: { ...process.env, ...env }, encoding: "utf8" });
@@ -252,6 +280,19 @@ function selfTest() {
   check("CLI: ...and it names the missing fields", /identity\.name/.test(none.stdout) && /education\[0\]\.graduation_year/.test(none.stdout), none.stdout.slice(0, 300));
   const ok = cli({ CAREER_AGENT_PROFILE: EXAMPLE_PROFILE });
   check("CLI: the example profile → exit 0", ok.status === 0, `exit ${ok.status}\n${ok.stdout}`);
+  // The CLI on one profile, differing only in education[0].start: free text → exit 1, YYYY-MM → exit 0.
+  const withStart = (start) => {
+    const p = clone();
+    p.education[0].start = start;
+    const f = path.join(tmp, `start-${start.replace(/\W+/g, "-")}.json`);
+    fs.writeFileSync(f, JSON.stringify(p, null, 2));
+    return cli({ CAREER_AGENT_PROFILE: f });
+  };
+  const freeText = withStart("sometime in autumn");
+  check("CLI: education[0].start = \"sometime in autumn\" → exit 1", freeText.status === 1, `exit ${freeText.status}\n${freeText.stdout}`);
+  check("CLI: ...naming education[0].start and saying it is not YYYY-MM", /✗ education\[0\]\.start\n\s+why: "sometime in autumn" is not YYYY-MM/.test(freeText.stdout), freeText.stdout.slice(0, 600));
+  const validStart = withStart("2026-09");
+  check("CLI: the same profile with education[0].start = \"2026-09\" → exit 0", validStart.status === 0, `exit ${validStart.status}\n${validStart.stdout}`);
   fs.rmSync(tmp, { recursive: true, force: true });
 
   console.log(failed ? `\nself-test FAILED (${failed})` : "\nself-test passed — the check fails on every kind of incomplete profile and passes on a complete one");

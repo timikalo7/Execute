@@ -25,10 +25,9 @@ import os from "node:os";
 import path from "node:path";
 import readline from "node:readline";
 import { spawnSync } from "node:child_process";
-import { FIELDS, answered, checkProfile, get, report, set } from "./profile-check.mjs";
+import { FIELDS, answered, checkProfile, get, isDate, report, set } from "./profile-check.mjs";
 import { loadExample, profilePath, readJson } from "./profile.mjs";
 
-const DATE_RE = /^(\d{4}-(0[1-9]|1[0-2])|present)$/;
 const SKIP = /^\s*(skip|s|-)?\s*$/i;
 const NONE = /^\s*(none|no|n\/a|nothing)\s*$/i;
 const YES = /^\s*y(es)?\s*$/i;
@@ -113,12 +112,13 @@ async function main() {
     if (piped) process.stdout.write(`${line}\n`);
     return SKIP.test(line) ? null : line.trim();
   };
+  const notDate = (v, allowPresent) => `  "${v}" is not ${allowPresent ? "YYYY-MM or present" : "YYYY-MM"}`;
   const subDate = async (prompt, allowPresent) => {
     for (let i = 0; i < 3; i++) {
       const v = await sub(prompt);
       if (v == null) return null;
-      if (DATE_RE.test(v) && (allowPresent || v !== "present")) return v;
-      console.log(`  "${v}" is not ${allowPresent ? "YYYY-MM or present" : "YYYY-MM"} — try again, or type skip.`);
+      if (isDate(v, allowPresent)) return v;
+      console.log(`${notDate(v, allowPresent)} — try again, or type skip.`);
     }
     return null;
   };
@@ -184,6 +184,24 @@ async function main() {
     switch (f.kind) {
       case "text": {
         const v = await ask(label, f.ask, f.why);
+        if (v != null) set(profile, f.path, v);
+        break;
+      }
+      case "date": {
+        // Same rule and message as the experience dates: three tries, then left for later. A saved
+        // value that is not a date (from an older run, or typed into the file) is shown and replaced.
+        const saved = get(profile, f.path);
+        const note = typeof saved === "string" && saved.trim() ? `\n  Saved now: "${saved}" — not a date the CV can print, so answer again.` : "";
+        let v = await ask(label, `${f.ask}${note}`, f.why);
+        for (let i = 1; v != null && !isDate(v, f.allowPresent); i++) {
+          if (i === 3) {
+            console.log(`${notDate(v, f.allowPresent)} — left unanswered. Run npm run setup again to answer it.`);
+            v = null;
+            break;
+          }
+          console.log(`${notDate(v, f.allowPresent)} — try again, or type skip.`);
+          v = await sub(`${f.ask}:`);
+        }
         if (v != null) set(profile, f.path, v);
         break;
       }
@@ -335,6 +353,8 @@ export const SAMPLE_ANSWERS = [
   "Weekends and university holidays", "None, I am a student", "UK passport", "No", "I use buses", "Yes", "",
 ];
 export const GRAD_YEAR_INDEX = SAMPLE_ANSWERS.indexOf("2032", SAMPLE_ANSWERS.indexOf("2032-06"));
+export const EDU_START_INDEX = SAMPLE_ANSWERS.indexOf("2027-09");
+export const EDU_END_INDEX = SAMPLE_ANSWERS.indexOf("2032-06");
 
 function selfTest() {
   let failed = 0;
@@ -400,6 +420,34 @@ function selfTest() {
     badAnswers.splice(GRAD_YEAR_INDEX, 1, "next year", "2032");
     const e = run(bad, badAnswers);
     check("a non-year is asked again rather than saved", e.status === 0 && readJson(bad).education[0].graduation_year === 2032, `exit ${e.status}`);
+
+    // 6. Education dates take the same YYYY-MM rule as experience dates: free text is refused with
+    //    "is not YYYY-MM — try again", never saved, and a valid answer after it is.
+    const freeStart = path.join(tmp, "free-start.json");
+    const fsAnswers = [...SAMPLE_ANSWERS];
+    fsAnswers.splice(EDU_START_INDEX, 1, "sometime in autumn", "2027-09");
+    const f6 = run(freeStart, fsAnswers);
+    check("education start: free text → \"is not YYYY-MM — try again\"", f6.stdout.includes(`"sometime in autumn" is not YYYY-MM — try again`), f6.stdout.slice(0, 2500));
+    check("...then the valid answer is saved and the profile passes (exit 0)", f6.status === 0 && readJson(freeStart).education[0].start === "2027-09", `exit ${f6.status}, start ${JSON.stringify(readJson(freeStart).education?.[0]?.start)}`);
+    const freeEnd = path.join(tmp, "free-end.json");
+    const feAnswers = [...SAMPLE_ANSWERS];
+    feAnswers.splice(EDU_END_INDEX, 1, "summer 2032", "2032-06");
+    const f7 = run(freeEnd, feAnswers);
+    check("education end: free text is asked again, then the valid answer is saved", /"summer 2032" is not YYYY-MM or present — try again/.test(f7.stdout) && f7.status === 0 && readJson(freeEnd).education[0].end === "2032-06", `exit ${f7.status}`);
+    const neverDate = path.join(tmp, "never-date.json");
+    const ndAnswers = [...SAMPLE_ANSWERS];
+    ndAnswers.splice(EDU_START_INDEX, 1, "sometime in autumn", "autumn 2027", "Sept 2027");
+    const f8 = run(neverDate, ndAnswers);
+    const r8 = checkProfile(readJson(neverDate));
+    check("three free-text starts → nothing saved, exit 1, and profile:check reports exactly education[0].start", f8.status === 1 && !readJson(neverDate).education[0].start && r8.missing.length === 1 && r8.missing[0].path === "education[0].start", `exit ${f8.status}, start ${JSON.stringify(readJson(neverDate).education?.[0]?.start)}, missing ${JSON.stringify(r8.missing.map((m) => m.path))}`);
+    // A free-text start already in the file (an older run, or typed in by hand) is asked again, once.
+    const resumeFree = path.join(tmp, "resume-free.json");
+    const pr = readJson(full);
+    pr.education[0].start = "sometime in autumn";
+    fs.writeFileSync(resumeFree, JSON.stringify(pr, null, 2));
+    const f9 = run(resumeFree, ["2027-09"]);
+    check("resume: a saved free-text start is the one question asked, and it shows the saved value", questions(f9.stdout) === 1 && /\[1\] education\[0\]\.start/.test(f9.stdout) && f9.stdout.includes(`Saved now: "sometime in autumn"`), f9.stdout.slice(0, 800));
+    check("resume: ...and the valid answer replaces it (exit 0)", f9.status === 0 && readJson(resumeFree).education[0].start === "2027-09", `exit ${f9.status}`);
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
