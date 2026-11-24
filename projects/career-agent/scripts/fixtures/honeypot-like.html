@@ -1,0 +1,33 @@
+<!doctype html><meta charset="utf-8"><title>Fixture — Teamtailor honeypot timing</title>
+<!--
+  A reproduction of the thing that actually broke: Teamtailor's application form ships a hidden
+  honeypot and DELETES it from JavaScript when its controller connects.
+
+      <input type="hidden" name="city" value="true" data-careersite--form-target="city">
+      ...
+      this.cityTarget.remove()
+
+  Submit before that has happened and the server answers "There was an error verifying your
+  application". The failure is TIMING, not the browser's identity — which is why every user-agent
+  change made no difference to it.
+
+  Here the removal is delayed by 1200ms on purpose, so a check that does not WAIT will see the trap
+  and a check that does will see it clear. Both directions are asserted in the self-test.
+
+  ?stuck=1 never removes it — the form that can never be submitted, so the refusal has something real
+  to refuse.
+-->
+<h1>Application</h1>
+<form id="app" onsubmit="window.__submitted = true; return false;">
+  <input type="hidden" name="city" id="city" value="true" data-careersite--form-target="city">
+  <input type="hidden" name="authenticity_token" value="server-rendered-csrf">
+  <label for="fn">First name *</label><input id="fn" name="first_name" required>
+  <label for="em">Email *</label><input id="em" name="email" type="email" required>
+  <button type="submit">Submit application</button>
+</form>
+<script>
+  // The site's own controller, in miniature: it arms the form a moment after load.
+  if (!new URLSearchParams(location.search).has("stuck")) {
+    setTimeout(() => document.getElementById("city")?.remove(), 1200);
+  }
+</script>

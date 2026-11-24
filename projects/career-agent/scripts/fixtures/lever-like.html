@@ -1,0 +1,36 @@
+<!doctype html><meta charset="utf-8"><title>Fixture — Lever-style application</title>
+<!--
+  A stand-in for a Lever posting page: the form fields Lever emits, with its habit of putting the
+  label text in a placeholder rather than a <label>, and a full-name box instead of first/last. Both
+  differences broke the first version of the matcher, which is why this fixture exists alongside the
+  Greenhouse one rather than instead of it.
+-->
+<h1>Software Engineer, Internship</h1>
+<form id="app" onsubmit="window.__submitted = true; return false;">
+  <input name="name" placeholder="Full name*" required>
+  <input name="email" type="email" placeholder="Email*" required>
+  <input name="phone" placeholder="Phone">
+  <input name="org" placeholder="Current company">
+  <input name="urls[LinkedIn]" placeholder="LinkedIn URL">
+  <input name="urls[GitHub]" placeholder="GitHub URL">
+  <input name="urls[Portfolio]" placeholder="Portfolio URL">
+  <input name="resume" type="file" aria-label="Attach resume">
+  <div class="application-question">
+    <div class="label">Which university do you attend?</div><input name="school">
+  </div>
+  <div class="application-question">
+    <div class="label">Do you now or will you in the future require sponsorship?</div>
+    <select name="sponsorship"><option value=""></option><option>Yes</option><option>No</option></select>
+  </div>
+  <div class="application-question">
+    <div class="label">Do you have the right to work in the UK?</div>
+    <select name="work_auth"><option value=""></option><option>Yes</option><option>No</option></select>
+  </div>
+  <div class="application-question">
+    <div class="label">Why are you interested in this role?</div><textarea name="why_us"></textarea>
+  </div>
+  <div class="application-question">
+    <div class="label">Tell us about a time you worked in a team.</div><textarea name="teamwork"></textarea>
+  </div>
+  <button type="submit">Apply for this job</button>
+</form>

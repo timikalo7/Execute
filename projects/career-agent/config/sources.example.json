@@ -1,0 +1,17 @@
+{
+  "_README": [
+    "The employer job boards discover.mjs reads. This file is the SHIPPED EXAMPLE; copy it to jobs/sources.json (gitignored) and make the list yours.",
+    "tier1 rows are public ATS board APIs: ats is one of greenhouse, lever, ashby, smartrecruiters; slug is the company's board name on that ATS.",
+    "Do not guess slugs: `node scripts/probe-sources.mjs` tries candidate slugs against every ATS and reports which ones answer, and `--verify` re-checks every row here.",
+    "tier2_browser_required lists sites this tool cannot fetch (JS-only pages, bot walls). The dashboard shows them under 'Check these yourself' so silence is never mistaken for a quiet day. Each row: name, url, measured_YYYY_MM_DD (what was seen), handling."
+  ],
+  "tier1": [
+    { "company": "Monzo", "ats": "greenhouse", "slug": "monzo" },
+    { "company": "Stripe", "ats": "greenhouse", "slug": "stripe" },
+    { "company": "Cloudflare", "ats": "greenhouse", "slug": "cloudflare" },
+    { "company": "Databricks", "ats": "greenhouse", "slug": "databricks" },
+    { "company": "Palantir", "ats": "lever", "slug": "palantir" },
+    { "company": "Ramp", "ats": "ashby", "slug": "ramp" }
+  ],
+  "tier2_browser_required": []
+}

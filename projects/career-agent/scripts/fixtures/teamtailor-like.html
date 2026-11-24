@@ -1,0 +1,60 @@
+<!doctype html><meta charset="utf-8"><title>Fixture — Teamtailor-style application</title>
+<!--
+  A stand-in for a real Teamtailor agency application form (<board>/jobs/<id>/applications/new),
+  built from the field names and control types read off a live page on 2026-08-16 — not from a
+  guess at what Teamtailor looks like.
+
+  It exists because Teamtailor opens with QUALIFYING QUESTIONS before the personal details, and two
+  of those control types appear nowhere in the Greenhouse or Lever fixtures:
+
+    - a RANGE SLIDER for a numeric answer. Playwright's fill() throws on input[type=range], so
+      before this fixture existed the three required sliders on a real agency form would have been reported
+      as a Playwright error string rather than as an answer.
+    - a four-way RADIO group (Enhanced / Standard / Basic / None) where every option describes
+      itself with the same question text, so only the option's OWN label can decide.
+
+  window.__submitted flips to true if anything ever submits. The self-test asserts it stays false.
+-->
+<h1>Event Bar Staff — Example City</h1>
+<form id="app" onsubmit="window.__submitted = true; return false;">
+
+  <fieldset>
+    <legend>Do you have the right to Work in the UK? *</legend>
+    <label><input type="radio" name="q_rtw" value="yes" required> Yes</label>
+    <label><input type="radio" name="q_rtw" value="no"> No</label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Do you have a valid DBS Certificate?</legend>
+    <label><input type="radio" name="q_dbs" value="enhanced"> Enhanced</label>
+    <label><input type="radio" name="q_dbs" value="standard"> Standard</label>
+    <label><input type="radio" name="q_dbs" value="basic"> Basic</label>
+    <label><input type="radio" name="q_dbs" value="none"> None</label>
+  </fieldset>
+
+  <label for="q_bar">How many years bar experience do you have? *</label>
+  <input id="q_bar" name="q_bar" type="range" min="0" max="20" step="1" value="5" required>
+
+  <label for="q_wait">How many years of Waiting experience do you have? *</label>
+  <input id="q_wait" name="q_wait" type="range" min="0" max="20" step="1" value="5" required>
+
+  <!-- Deliberately starts at 16, so a fixture that only ever set a value inside the range would not
+       prove the clamp check. Setting 18 here must succeed; setting 5 must be REFUSED, not silently
+       clamped to 16 and reported as filled. -->
+  <label for="q_age">Please confirm your age? *</label>
+  <input id="q_age" name="q_age" type="range" min="16" max="70" step="1" value="16" required>
+
+  <h2>Personal information</h2>
+  <label for="first_name">First name *</label><input id="first_name" name="candidate[first_name]" required>
+  <label for="last_name">Last name *</label><input id="last_name" name="candidate[last_name]" required>
+  <label for="email">Email *</label><input id="email" name="candidate[email]" type="email" required>
+  <label for="phone">Phone</label><input id="phone" name="candidate[phone]" type="tel">
+  <label for="resume">Upload CV</label><input id="resume" name="candidate[resume]" type="file">
+  <label for="extra">Additional files</label><input id="extra" name="candidate[file]" type="file">
+  <label for="cover">Cover letter</label><textarea id="cover" name="candidate[cover_letter]"></textarea>
+
+  <label><input type="checkbox" name="candidate[consent_given]" required> I consent to my data being processed</label>
+  <label><input type="checkbox" name="candidate[consent_given_future_jobs]"> Yes, Example Staffing can contact me directly about specific future job opportunities.</label>
+
+  <button type="submit" name="commit">Submit application</button>
+</form>

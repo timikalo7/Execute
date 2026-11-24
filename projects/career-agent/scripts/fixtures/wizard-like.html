@@ -1,0 +1,68 @@
+<!doctype html><meta charset="utf-8"><title>Fixture — three-page application wizard</title>
+<!--
+  A stand-in for the multi-page applications that plenty of employers actually use: personal details,
+  then education, then screening questions, then a review step with the real Submit.
+
+  It exists to prove two things at once, which is why it has three pages rather than two:
+    1. The filler ADVANCES — page 2 and page 3 get filled, not just page 1.
+    2. It still NEVER SUBMITS. The last page's button says "Submit application", and the loop has to
+       refuse it and stop rather than treat it as one more "next".
+
+  Page 3 also carries a required field the profile has no answer for, so the run has to stop and hand
+  back rather than clicking on past it.
+-->
+<h1>Software Engineer Internship — application</h1>
+
+<form id="app" onsubmit="window.__submitted = true; return false;">
+  <section id="p1">
+    <h2>Step 1 — About you</h2>
+    <label for="fn">First Name*</label><input id="fn" name="first_name" required>
+    <label for="ln">Last Name*</label><input id="ln" name="last_name" required>
+    <label for="em">Email*</label><input id="em" name="email" type="email" required>
+    <label for="ph">Phone</label><input id="ph" name="phone">
+    <button type="button" id="n1">Next</button>
+  </section>
+
+  <section id="p2" hidden>
+    <h2>Step 2 — Education</h2>
+    <label for="sch">Which university are you attending?*</label><input id="sch" name="school" required>
+    <label for="deg">Degree*</label><input id="deg" name="degree" required>
+    <label for="gy">Graduation Year*</label><input id="gy" name="grad_year" required>
+    <label for="hs">High School Name*</label><input id="hs" name="high_school" required>
+    <button type="button" id="n2">Save and continue</button>
+  </section>
+
+  <section id="p3" hidden>
+    <h2>Step 3 — Screening</h2>
+    <fieldset>
+      <legend>Are you legally authorized to work in the United Kingdom?*</legend>
+      <label><input type="radio" name="work_auth" value="Yes" required> Yes</label>
+      <label><input type="radio" name="work_auth" value="No"> No</label>
+    </fieldset>
+    <fieldset>
+      <legend>Will you now or in the future require visa sponsorship?*</legend>
+      <label><input type="radio" name="sponsorship" value="Yes" required> Yes</label>
+      <label><input type="radio" name="sponsorship" value="No"> No</label>
+    </fieldset>
+    <fieldset>
+      <legend>What is your T-shirt size?*</legend>
+      <label><input type="radio" name="tshirt" value="S" required> S</label>
+      <label><input type="radio" name="tshirt" value="M"> M</label>
+      <label><input type="radio" name="tshirt" value="L"> L</label>
+    </fieldset>
+    <button type="submit" id="go">Submit application</button>
+  </section>
+</form>
+
+<script>
+  // Deliberately client-side page switching with no navigation — the harder case for the loop, and
+  // the one a single-page-app careers portal actually presents.
+  document.getElementById('n1').addEventListener('click', () => {
+    document.getElementById('p1').hidden = true;
+    document.getElementById('p2').hidden = false;
+  });
+  document.getElementById('n2').addEventListener('click', () => {
+    document.getElementById('p2').hidden = true;
+    document.getElementById('p3').hidden = false;
+  });
+</script>

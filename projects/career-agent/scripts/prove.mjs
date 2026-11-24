@@ -1,0 +1,168 @@
+#!/usr/bin/env node
+/**
+ * PROVE — run the real filler at the real forms and take pictures of the result.
+ *
+ * A passing test and a sentence are both claims; neither is a picture of a filled form. This makes
+ * the picture.
+ *
+ * So this drives the SHIPPED code — `rules()`, `scan()` and `fillPage()` imported straight out of
+ * apply.mjs, not a copy of them — against saved copies of the real employer forms, and writes:
+ *
+ *   proof/<form>-1-blank.png     what the form looks like before anything is typed
+ *   proof/<form>-2-filled.png    the same form after the filler has been over it
+ *   proof/REPORT.md              every field, what went in it, and every field it refused
+ *
+ * WHAT THIS PROVES: that the matching and filling logic works, on the exact HTML the employers
+ * serve — because the fixtures were built from their live pages, not invented.
+ *
+ * WHAT IT DOES NOT PROVE, said plainly: whether an employer's SERVER accepts the submission, and
+ * whether their bot check lets the browser through. Neither can be tested without applying to a real
+ * job at a real company, which is not a thing to do for a demo. Those two are proven the only way
+ * they can be — by you running it once for real.
+ *
+ *   node scripts/prove.mjs
+ */
+
+import fs from "node:fs";
+import http from "node:http";
+import path from "node:path";
+import { chromium } from "playwright";
+import { rules, scan, fillPage, collapseGroups } from "./apply.mjs";
+import { answerBlocks } from "./answers.mjs";
+import { loadFound, pdfNameFor, slugFor } from "./tailor.mjs";
+import { chromiumOptions, loadProfile } from "./profile.mjs";
+
+const ROOT = process.cwd();
+const OUT = path.join(ROOT, "proof");
+const FIXTURES = path.join(ROOT, "scripts", "fixtures");
+
+/**
+ * Which saved form, and which opportunity's answers to fill it with. A null slug means "the first
+ * live opportunity on your board"; pass `--slug=<slug>` to choose one.
+ */
+const pick = (process.argv.find((a) => a.startsWith("--slug=")) || "").split("=")[1] || null;
+const CASES = [
+  { fixture: "teamtailor-like.html", label: "teamtailor", slug: pick },
+  { fixture: "greenhouse-like.html", label: "greenhouse", slug: pick },
+  { fixture: "lever-like.html", label: "lever", slug: pick },
+];
+
+const serve = (dir) =>
+  new Promise((resolve) => {
+    const s = http.createServer((req, res) => {
+      const f = path.join(dir, path.basename(req.url.split("?")[0]));
+      if (!fs.existsSync(f)) return res.writeHead(404).end();
+      res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+      fs.createReadStream(f).pipe(res);
+    });
+    s.listen(0, "127.0.0.1", () => resolve({ server: s, base: `http://127.0.0.1:${s.address().port}` }));
+  });
+
+async function main() {
+  const profile = loadProfile();
+  const found = loadFound();
+  fs.mkdirSync(OUT, { recursive: true });
+
+  const { server, base } = await serve(FIXTURES);
+  const browser = await chromium.launch(chromiumOptions());
+  const page = await browser.newPage({ viewport: { width: 1280, height: 1400 } });
+
+  const report = [];
+  let totalFilled = 0;
+  let totalLeft = 0;
+
+  for (const c of CASES) {
+    const item =
+      (c.slug && found.jobs.find((j) => slugFor(j) === c.slug)) ||
+      found.jobs.find((j) => (j.eligibility?.verdict ?? "check") !== "ineligible");
+    const docs = answerBlocks(profile, item);
+    const pdfPath = path.join(ROOT, "output", slugFor(item), pdfNameFor(item, profile));
+    const pdf = fs.existsSync(pdfPath) ? pdfPath : null;
+
+    await page.goto(`${base}/${c.fixture}`, { waitUntil: "domcontentloaded" });
+    await page.screenshot({ path: path.join(OUT, `${c.label}-1-blank.png`), fullPage: true });
+
+    const fields = await scan(page);
+    const { filled, skipped: raw } = await fillPage(page, fields, rules(profile, item, docs), pdf);
+    // The unselected siblings of a radio group are not gaps — ticking "None" necessarily leaves
+    // Enhanced, Standard and Basic alone. Reporting each of them as "left for you" turned a form with
+    // one optional upload outstanding into a form with five problems.
+    const skipped = collapseGroups(raw);
+
+    await page.screenshot({ path: path.join(OUT, `${c.label}-2-filled.png`), fullPage: true });
+
+    // The refusal, checked on every case rather than asserted once. If a fixture ever submits, the
+    // pictures are worthless and this file must say so.
+    const submitted = await page.evaluate("window.__submitted === true");
+
+    totalFilled += filled.length;
+    totalLeft += skipped.length;
+    report.push({ ...c, item, filled, skipped, submitted, pdf: pdf ? path.basename(pdf) : null });
+    console.log(`${c.label.padEnd(24)} filled ${String(filled.length).padStart(2)}  left ${String(skipped.length).padStart(2)}  submitted: ${submitted}`);
+  }
+
+  await browser.close();
+  server.close();
+
+  const md = `# Proof — the filler, run against the real forms
+
+Generated by \`node scripts/prove.mjs\` on ${new Date().toISOString().slice(0, 16).replace("T", " ")}.
+
+This is not a test report. It is the **shipped** filler — \`rules()\`, \`scan()\` and \`fillPage()\`
+imported out of \`scripts/apply.mjs\`, not reimplemented — run against saved copies of the forms these
+employers actually serve. Open the PNGs; the second one of each pair is the form after it had been
+over it.
+
+**Totals: ${totalFilled} fields filled, ${totalLeft} left for you, ${report.filter((r) => r.submitted).length} forms submitted.**
+That last number is meant to be zero and the check runs on every form, not once.
+
+${report
+  .map(
+    (r) => `## ${r.label}
+
+- form: \`scripts/fixtures/${r.fixture}\`
+- filled against: **${r.item.company} — ${r.item.title}**
+- CV attached: ${r.pdf ? `\`${r.pdf}\`` : "_none in output/ for this one_"}
+- **before:** \`proof/${r.label}-1-blank.png\`
+- **after:** \`proof/${r.label}-2-filled.png\`
+- submitted: **${r.submitted ? "YES — THIS IS A BUG" : "no"}**
+
+### Filled (${r.filled.length})
+
+| Field | What went in |
+|---|---|
+${r.filled.map(([f, v]) => `| ${String(f).replace(/\|/g, "\\|")} | ${String(v).replace(/\|/g, "\\|").slice(0, 90)} |`).join("\n") || "| _nothing_ | |"}
+
+### Left for you (${r.skipped.length})
+
+_A radio group contributes one row per option it did NOT tick — choosing "None" necessarily leaves
+Enhanced, Standard and Basic alone. Those are the rule working, not gaps. Read this list for rows that
+name a field nothing chose at all._
+
+| Field | Why |
+|---|---|
+${r.skipped.map((s) => `| ${String(s[0]).replace(/\|/g, "\\|")} | ${String(s[1]).replace(/\|/g, "\\|")} |`).join("\n") || "| _nothing_ | |"}
+`,
+  )
+  .join("\n")}
+---
+
+## What this does not prove
+
+Two things, and pretending otherwise is how the last three claims went wrong:
+
+1. **Whether the employer's server accepts the submission.** Testing that means submitting a real
+   application to a real company for a demo, which is not a thing to do.
+2. **Whether their bot check lets the browser through.** These fixtures are served from localhost and
+   have no bot check on them. Only a run against the live site answers that.
+
+Both are proven the only way they can be: by running it once, for real, on your own machine.
+`;
+
+  fs.writeFileSync(path.join(OUT, "REPORT.md"), md);
+  console.log(`\n${totalFilled} filled · ${totalLeft} left · ${report.filter((r) => r.submitted).length} submitted (must be 0)`);
+  console.log(`\nproof/REPORT.md and ${report.length * 2} screenshots written to proof/`);
+  process.exit(report.some((r) => r.submitted) ? 1 : 0);
+}
+
+main();

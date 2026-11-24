@@ -170,3 +170,10 @@ export async function cdpPort() {
     });
   });
 }
+
+/** Your own non-technical CV (optional): the PDF, and the text normal-cv.mjs extracts back out of it. */
+export function normalCvPaths(p) {
+  const clean = (s) => String(s || "").replace(/[^A-Za-z0-9 .]/g, " ").trim().replace(/\s+/g, "-");
+  const pdf = p?.cv_files?.normal_pdf || path.join("profile", "cv", `${clean(p?.identity?.name) || "my"}-CV-Normal.pdf`);
+  return { pdf, txt: pdf.replace(/\.pdf$/i, "") + ".txt" };
+}

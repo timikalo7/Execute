@@ -1,0 +1,37 @@
+<!doctype html><meta charset="utf-8"><title>Fixture — Greenhouse-style application</title>
+<!--
+  A stand-in for a Greenhouse application form, using the field names and label markup Greenhouse
+  actually emits. It exists so apply.mjs can be tested without sending a test application to a real
+  recruiter, which is the only other way to exercise this code.
+
+  window.__submitted flips to true if anything ever submits the form. The self-test asserts it stays
+  false — that is the never-submit rule being proven rather than asserted.
+-->
+<h1>Software Engineer, Internship</h1>
+<form id="app" onsubmit="window.__submitted = true; return false;">
+  <label for="first_name">First Name *</label><input id="first_name" name="first_name" required>
+  <label for="last_name">Last Name *</label><input id="last_name" name="last_name" required>
+  <label for="email">Email *</label><input id="email" name="email" type="email" required>
+  <label for="phone">Phone</label><input id="phone" name="phone">
+  <label for="resume">Resume/CV *</label><input id="resume" name="resume" type="file" required>
+  <label for="address-line-1">Street address</label><input id="address-line-1" name="address-line-1">
+  <label for="city">City</label><input id="city" name="city">
+  <label for="postcode">Postcode</label><input id="postcode" name="postcode">
+  <label for="country">Country</label><input id="country" name="country">
+  <label for="school">School</label><input id="school" name="school">
+  <label for="degree">Degree</label><input id="degree" name="degree">
+  <label for="discipline">Discipline</label><input id="discipline" name="discipline">
+  <label for="end_date">Expected graduation year</label><input id="end_date" name="end_date">
+  <label for="linkedin">LinkedIn Profile</label><input id="linkedin" name="linkedin">
+  <label for="github">GitHub URL</label><input id="github" name="github">
+  <label for="website">Website</label><input id="website" name="website">
+  <label for="sponsorship">Will you now or in the future require visa sponsorship? *</label>
+  <select id="sponsorship" name="sponsorship" required><option value=""></option><option>Yes</option><option>No</option><option>Not applicable</option></select>
+  <label for="work_auth">Are you legally authorized to work in the United Kingdom? *</label>
+  <select id="work_auth" name="work_auth" required><option value=""></option><option>Yes</option><option>No</option></select>
+  <label for="source">How did you hear about us?</label><input id="source" name="source">
+  <label for="why_us">Why do you want to work here? *</label><textarea id="why_us" name="why_us" required></textarea>
+  <label for="hardest">Describe the hardest technical challenge you have faced.</label><textarea id="hardest" name="hardest"></textarea>
+  <label for="account_password">Create a password for your candidate account</label><input id="account_password" name="account_password" type="password">
+  <button type="submit">Submit Application</button>
+</form>

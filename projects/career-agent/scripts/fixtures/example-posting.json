@@ -1,0 +1,11 @@
+{
+  "_help": "A FICTIONAL posting used by the self-tests (tailor.mjs, apply.mjs). It never reaches a real employer.",
+  "kind": "job",
+  "source": "greenhouse",
+  "company": "Example Analytics",
+  "title": "Software Engineer Intern, Summer 2030",
+  "location": "Manchester, United Kingdom",
+  "url": "https://example.com/jobs/software-engineer-intern-2030",
+  "posted": "2029-08-01",
+  "description": "Join the data platform team for twelve weeks in summer 2030. You will build Python services and PostgreSQL pipelines that move customer data into our analytics platform. Experience with Docker is useful, and Kubernetes is a plus. Open to penultimate year students studying computer science or a related subject. You need the right to work in the UK; we do not offer visa sponsorship."
+}
