@@ -22,3 +22,15 @@ on a pass.
 **Not checked.** `/career-onboard` end to end inside Claude Code; the Windows `.cmd` launchers;
 `apply.mjs` on a live employer form; `prove.mjs` / `prove-edge.mjs`; Night-of-workshop install on
 attendees' machines.
+
+**Evaluation (separate agent).** A fresh-context evaluator, given only the request and the branch,
+re-ran the personal-data scanner and then hunted independently (about 90 terms built from the private
+source, paraphrase comparison of capitalised words, every added line and commit message): none found.
+It followed the README from a clean checkout to a passing `profile:check`, ran the daily loop
+(discover 2704 postings, tailor 46, pdf 46), confirmed nothing personal becomes tracked by git, showed
+`ground` failing invented claims and `apply`'s never-submit self-test going red when its guard is
+broken. Findings for before the workshop: Git missing from README prerequisites; Execute's own
+communication rules load in Claude Code; a year in a posting's own name trips `ground`; PowerShell
+execution policy not in troubleshooting; education dates accept free text.
+
+Evaluation (separate agent): PASS — no owner data in files, added lines or commit messages; a clean checkout following the README reaches a passing profile:check; npm test passes with no profile; ground fails invented claims; apply never submits.
