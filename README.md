@@ -28,6 +28,7 @@ apps, watching/analyzing media, crawling references, and driving a live browser.
 | `.env.example` | Every environment variable the repo reads, all optional, each saying what breaks without it. Copy to `.env`. |
 | `SETUP-KEYS.md` | The credential table — what each key unlocks and where to get it. Nothing here is required to run Execute. |
 | `CREDITS.md` | Attribution for every vendored upstream skill and the tools the playbook draws on. |
+| `projects/career-agent/` | A ready-to-use internship-application agent: finds postings, tailors a grounded CV per role, pre-fills forms (you submit). Start with its [README](projects/career-agent/README.md) or `/career-onboard`. |
 
 ## Quick start
 

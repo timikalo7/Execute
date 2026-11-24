@@ -1,0 +1,150 @@
+# career-agent — internship applications, tailored properly
+
+career-agent finds internships, placements and hackathons from public job-board APIs, checks
+whether you can actually apply (intake year, year group, location, work authorisation, deadline),
+ranks what is left against your own bar, and writes a tailored one-page CV, a gap analysis and a
+full application-form pack for each one. Every claim in those documents is checked against your
+profile before you see it. It then opens the real application form in a browser on your machine and
+fills in what it can — and stops. You read it and press submit.
+
+## The honesty rule
+
+**Tailoring is re-presenting true things for a specific audience. Fabrication is fraud.**
+
+Everything generated here — every CV bullet, every line of a form answer — must trace back to a
+string in `profile/master-profile.json`. That is a runnable check, not a guideline:
+`npm run ground -- output/<slug>` fails if a document names a number, year, organisation or
+technology that is not in your profile. **A fail means something was invented. Fix the claim, never
+the check.** If it is true, add it to your profile with evidence.
+
+So the quality of everything this tool writes is capped by your profile. Put the numbers and outcomes
+there: "built an app" can never become "built an app used by 120 students" unless you wrote the 120.
+
+## Workshop quickstart
+
+You need about 15 minutes, a terminal, and your current CV.
+
+**1. Install Node.js 20 or newer** (the LTS version is fine).
+
+- **Windows:** download the LTS installer from <https://nodejs.org/en/download> and accept the
+  defaults. Then open a **new** PowerShell window.
+- **macOS:** download the LTS installer from <https://nodejs.org/en/download>, or with Homebrew:
+  `brew install node`. Then open a new Terminal window.
+
+Check it: `node --version` should print `v20` or higher.
+
+**2. Get the code and install it**
+
+```
+git clone <the repository URL your workshop gives you>
+cd <the cloned folder>/projects/career-agent
+npm ci
+npx playwright install chromium
+```
+
+`npx playwright install chromium` downloads a browser (about 150 MB) once. Check everything works:
+
+```
+npm test
+```
+
+Every self-test runs against a fictional person (Alex Example), so this passes before you have a
+profile.
+
+**3. Put your CV in `profile/cv/`** — a `.pdf`, `.docx` or `.txt`. That folder is gitignored.
+
+**4. Build your profile — pick ONE:**
+
+- **In Claude Code:** open the repository in Claude Code and run **`/career-onboard`**. It reads
+  your CV, fills in only what the CV states, then asks you one question at a time — especially for
+  the numbers, outcomes and dates behind each bullet — until the profile is complete.
+- **Without AI:** run **`npm run setup`**. A terminal quiz asks for every field, one question at a
+  time, with the reason it is needed. Type `skip` to leave one for later; it saves after every answer,
+  so you can stop and run it again.
+
+Then check it:
+
+```
+npm run profile:check
+```
+
+It lists anything still missing and why the tool needs it, and exits 0 when the profile is complete.
+
+**5. The daily loop**
+
+```
+npm run discover                    # find postings          → jobs/found.json
+npm run tailor                      # CV + gap + form pack   → output/<slug>/
+npm run ground -- output/<slug>     # prove every claim against your profile
+npm run pdf                         # one-page PDF per posting, text-extraction checked
+npm run apply -- --list             # see what is on the board
+npm run apply -- <slug>             # open the form, fill it, STOP — you read it and submit
+```
+
+`npm run daily` runs discover → tailor → pdf → brief → dashboard in one go and writes
+`dashboard.html` (open it in a browser). Track what you sent with
+`npm run track -- add "Company" "Role" --url <link>`; `npm run track -- list --due` shows what to
+chase. On Windows, double-click `career-agent.cmd` (refresh the board) or `apply.cmd` (fill one
+form in your own Edge).
+
+The `--` in `npm run ground -- output/<slug>` is not a typo: it passes the rest to the script.
+
+To choose which employers' boards are searched, copy `config/sources.example.json` to
+`jobs/sources.json` and edit it; `node scripts/probe-sources.mjs "Company Name"` finds a company's
+board for you.
+
+## What is deliberately not automated
+
+- **Submitting.** `apply.mjs` has no code path that presses submit. Boards prohibit programmatic
+  submission, tracking systems detect template spray, and an application cannot be unsubmitted. The
+  tool prepares; you send.
+- **LinkedIn.** No scraping, no auto-connecting, no Easy Apply bots. LinkedIn's terms prohibit
+  automated access, and the penalty is a restricted account in the middle of a job search.
+- **Inventing anything.** See the honesty rule.
+
+## Privacy
+
+- Your profile (`profile/master-profile.json`), your CV (`profile/cv/`), and everything generated
+  from them (`output/`, `jobs/`, `applications/`, `answers/`, `dashboard.html`, `proof/`) stay on your
+  machine. They are all in `.gitignore`. **Do not commit them, and never `git add -f` them.**
+- **A public fork plus a scheduled workflow would publish your data.** If you fork this repository
+  publicly and add a GitHub Action that runs the daily loop and commits its output, your CV,
+  address and phone number go onto the public internet. Run the loop locally instead.
+- Nothing is sent anywhere except the requests to public job-board APIs (no personal data in them)
+  and, when you run `apply`, the form you fill in your own browser.
+- Date of birth, National Insurance and passport numbers are never stored. Type them on the day.
+- By default the job-board requests identify themselves as `career-agent (personal job search)`. Set
+  `CAREER_AGENT_CONTACT` only if you want a contact address in that header.
+
+## Troubleshooting
+
+| You see | Do this |
+|---|---|
+| `'node' is not recognized` / `node: command not found` | Install Node 20+ (step 1), then open a **new** terminal — old windows do not see the new PATH. |
+| `career-agent: no profile at profile/master-profile.json` | Run `npm run setup` or `/career-onboard`, then `npm run profile:check`. |
+| `browserType.launch: Executable doesn't exist at …` | Run `npx playwright install chromium`. On a locked-down machine with Chrome installed, set `CAREER_AGENT_CHROMIUM` to its path instead. |
+| `career-agent: no jobs/found.json yet` | Run `npm run discover` first (or `npm run daily`). |
+| `RESULT: FAIL — N claim(s) not traceable to the profile` | The named number, year or name is not in your profile. If it is true, add it to the profile with evidence; if not, remove it. Never edit the check. |
+| `There was an error verifying your application` on a form | The site's own script had not finished setting up the form. Reload the page, wait, and run `apply` again (it checks for this and says so). |
+| `npm WARN EBADENGINE`, or a `SyntaxError` when a script starts | Your Node is older than 20. Install the current LTS and open a new terminal. |
+
+## Setup keys
+
+**No API keys are needed.** Every environment variable below is optional and read by name only;
+see `.env.example`.
+
+| Variable | What it changes | Default |
+|---|---|---|
+| `CAREER_AGENT_CONTACT` | Contact string (e.g. an email) sent in the User-Agent to job-board APIs | `career-agent (personal job search)` |
+| `CAREER_AGENT_PROFILE` | Path to the profile the scripts read | `profile/master-profile.json` |
+| `CAREER_AGENT_CHROMIUM` | Path to a Chrome/Chromium executable for Playwright | Playwright's own browser |
+| `CAREER_AGENT_TEST_PORT` | Fixed port for the self-tests' local fixture server | a free port |
+| `CAREER_AGENT_CDP_PORT` | Fixed port for the self-tests' attach-to-browser check | a free port |
+
+## Files
+
+`scripts/` holds the code — each script starts with a comment saying what it does and why.
+`scripts/profile.mjs` is the only place user-specific values are read. `scripts/profile-check.mjs`
+lists every profile field the scripts read, with the reason. `profile/master-profile.example.json`
+is a complete fictional profile with a `_help` note on every section. `CLAUDE.md` tells Claude Code
+how to work in this folder.
