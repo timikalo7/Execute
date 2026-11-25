@@ -62,8 +62,8 @@ const sh = (cmd) => execSync(cmd, { encoding: "utf8", timeout: 30_000 });
  * the first version of this fix omitted it — so the "no network at all" test still
  * reported FAIL. A transport-code list assembled from memory is a list with holes in it.
  *
- * The IPv4/IPv6 retry matters here specifically: cityofjoystandrews.org.uk resolves to an
- * IPv6 address only, and GitHub's hosted runners have historically had no IPv6 route.
+ * The IPv4/IPv6 retry matters for any IPv6-only site (the case that found this resolved to an
+ * IPv6 address only), and GitHub's hosted runners have historically had no IPv6 route.
  */
 const TRANSPORT_CODES = new Set([5, 6, 7, 28, 35, 52, 55, 56]);
 

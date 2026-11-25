@@ -60,7 +60,7 @@ Slow responses (> `slowMs`, default 4s) warn without failing.
 `check.mjs` exits **0 pass · 1 the SITE is failing · 3 NOT CHECKED**, and the workflow
 raises a different issue for each of the last two.
 
-**Why:** issue #29 sat open for three days claiming `cityofjoystandrews.org.uk` was down
+**Why:** an issue sat open for three days claiming a watched site was down
 across six checks. The site was serving **200 on every route the whole time**. Every
 failure line read `request failed (Command failed: curl …)` — that is curl never opening a
 socket, not the site answering badly. The runner almost certainly had no IPv6 route, and
