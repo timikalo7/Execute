@@ -28,7 +28,7 @@ new liability — justify each.
 
 ## 2. Security headers — set them, then verify them on the live host
 Every site ships these (via framework middleware for SSR, or `.htaccess`/`_headers`/host config for
-static). This is the CoJ `.htaccess` set, now the baseline:
+static). This is the `.htaccess` set from a shipped static site, now the baseline:
 - `Content-Security-Policy` — the big one. Lock `default-src 'self'`; enumerate every external origin
   you actually use in `connect-src`/`frame-src`/`img-src`; `object-src 'none'`; `frame-ancestors 'none'`
   (clickjacking); `base-uri 'self'`; `form-action` limited to self + your form endpoint;

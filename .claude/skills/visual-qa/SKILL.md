@@ -164,7 +164,7 @@ run.sh already handles the leftover link.)
    ```bash
    PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers \
    node .claude/skills/visual-qa/sweep.mjs --base http://localhost:8099 --out /tmp/vqa \
-     --routes / /about /connect /give /plan-your-visit /what-to-expect /expressions /join-the-team /rcf-st-andrews \
+     --routes / /about /pricing /contact /blog /docs /careers \
      --widths 390 768 1440
    ```
    Playwright is at `/opt/node22/lib/node_modules/playwright`; axe-core is auto-found at
