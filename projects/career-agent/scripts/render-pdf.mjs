@@ -27,6 +27,7 @@
  *   node scripts/render-pdf.mjs --self-test  prove the extraction check FAILS on bad input
  */
 
+import { spawnSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
@@ -35,8 +36,9 @@ import { chromium } from "playwright";
 import { assess } from "./eligibility.mjs";
 import { FIT_STEPS, cvHtml, cvMarkdown } from "./cv-html.mjs";
 import { cvVariantFor, loadFound, pdfNameFor, slugFor } from "./tailor.mjs";
-import { chromiumOptions, loadExample, loadProfile } from "./profile.mjs";
+import { browserCandidates, chromiumOptions, loadExample, loadProfile, PROJECT_ROOT } from "./profile.mjs";
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
+import { pathToFileURL } from "node:url";
 
 const ROOT = process.cwd();
 const OUT = path.join(ROOT, "output");
@@ -126,12 +128,89 @@ async function selfTest() {
   }
   await browser.close();
   fs.rmSync(tmp, { recursive: true, force: true });
+
+  failed += browserChoiceSelfTest();
+
   console.log(
     failed
       ? `\nself-test FAILED (${failed})`
       : "\nself-test passed — the ATS check fails on an unreadable CV and passes on a readable one",
   );
   process.exit(failed ? 1 : 0);
+}
+
+// WHICH BROWSER. The PDF is printed by the browser the user already has (Edge, Chrome) before the
+// 150 MB bundled download is ever needed. The order is a pure function, so every platform's order is
+// checked here, on any machine. Then the failure a user would actually hit — nothing can start — is
+// run for real in a child process, because it must read as one plain sentence, not a stack trace.
+function browserChoiceSelfTest() {
+  let failed = 0;
+  const check = (ok, name, detail) => {
+    console.log(`${ok ? "PASS" : "FAIL"}  ${name} → ${detail}`);
+    if (!ok) failed++;
+  };
+  const order = (platform, env = {}) => browserCandidates(platform, env).map((c) => c.label);
+  const same = (got, want) => JSON.stringify(got) === JSON.stringify(want);
+
+  for (const [platform, want] of [
+    ["win32", ["msedge (installed)", "chrome (installed)", "bundled chromium"]],
+    ["darwin", ["chrome (installed)", "msedge (installed)", "bundled chromium"]],
+    ["linux", ["chrome (installed)", "bundled chromium"]],
+  ]) {
+    const got = order(platform);
+    check(same(got, want), `browser order on ${platform}: installed first, bundled last`, got.join(" > "));
+  }
+
+  const exe = path.join("custom", "browser", "chrome");
+  const overridden = browserCandidates("linux", { CAREER_AGENT_CHROMIUM: exe });
+  check(
+    overridden[0].options.executablePath === exe &&
+      same(overridden.map((c) => c.label), [`${exe} (CAREER_AGENT_CHROMIUM)`, "chrome (installed)", "bundled chromium"]),
+    "CAREER_AGENT_CHROMIUM is tried before anything else",
+    overridden.map((c) => c.label).join(" > "),
+  );
+
+  const prefer = order("win32", { CAREER_AGENT_BROWSER: "chrome" });
+  check(same(prefer, ["chrome (installed)", "msedge (installed)", "bundled chromium"]), "CAREER_AGENT_BROWSER=chrome goes ahead of the platform default", prefer.join(" > "));
+  const only = order("win32", { CAREER_AGENT_BROWSER: "chromium" });
+  check(same(only, ["bundled chromium"]), "CAREER_AGENT_BROWSER=chromium means Playwright's own Chromium only", only.join(" > "));
+  let typo = null;
+  try {
+    order("win32", { CAREER_AGENT_BROWSER: "edge" });
+  } catch (e) {
+    typo = e.message;
+  }
+  check(/msedge, chrome, chromium/.test(typo || ""), "an unknown CAREER_AGENT_BROWSER is refused, naming the valid values", JSON.stringify(typo));
+
+  // Nothing can start: only the bundled build is allowed, the bundled build is not there, and the
+  // named executable does not exist. Run as a real process, so the exit code and stderr are real.
+  const empty = fs.mkdtempSync(path.join(os.tmpdir(), "no-browsers-"));
+  const probe =
+    `const m = await import(${JSON.stringify(pathToFileURL(path.join(PROJECT_ROOT, "scripts", "profile.mjs")).href)});` +
+    `const b = await m.launchBrowser().catch(m.exitIfNoBrowser); console.log("LAUNCHED"); await b.close();`;
+  const r = spawnSync(process.execPath, ["--input-type=module", "-e", probe], {
+    encoding: "utf8",
+    timeout: 60000,
+    env: {
+      ...process.env,
+      CAREER_AGENT_BROWSER: "chromium",
+      PLAYWRIGHT_BROWSERS_PATH: empty,
+      CAREER_AGENT_CHROMIUM: path.join(empty, "no-such-browser"),
+    },
+  });
+  fs.rmSync(empty, { recursive: true, force: true });
+  const err = String(r.stderr || "").trim();
+  check(
+    r.status !== 0 &&
+      !/LAUNCHED/.test(r.stdout || "") &&
+      err.split("\n").length === 1 &&
+      !/\bat .*:\d+:\d+/.test(err) &&
+      /Microsoft Edge or Google Chrome/.test(err) &&
+      /npx playwright install chromium/.test(err),
+    "no browser at all: one plain line naming both fixes, non-zero exit, no stack trace",
+    `exit ${r.status} · ${JSON.stringify(err)}`,
+  );
+  return failed;
 }
 
 // ------------------------------------------------------------------ main

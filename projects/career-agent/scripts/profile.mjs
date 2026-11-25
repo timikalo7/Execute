@@ -150,6 +150,98 @@ export function chromiumOptions(extra = {}) {
   return exe ? { ...extra, executablePath: exe } : extra;
 }
 
+// ------------------------------------------------------------------ which browser to launch
+//
+// Playwright's own Chromium is a 150 MB download, and on a workshop's Wi-Fi that one step is where a
+// room of laptops stalls. Almost every laptop already has a browser Playwright can drive: Windows
+// ships Microsoft Edge, and most Macs and Linux machines have Google Chrome. So the installed browser
+// is tried first, and the download is a fallback rather than a setup step.
+
+/** The values CAREER_AGENT_BROWSER accepts. "chromium" means Playwright's own build only. */
+export const BROWSER_NAMES = ["msedge", "chrome", "chromium"];
+
+const BROWSER_SETUP = "CAREER_AGENT_BROWSER_SETUP";
+const setupError = (message) => Object.assign(new Error(message), { code: BROWSER_SETUP });
+
+/** What to do when no browser starts. Both fixes, in one sentence. */
+export const NO_BROWSER_HELP = "Install Microsoft Edge or Google Chrome, or run once: npx playwright install chromium";
+
+/**
+ * Every browser to try, in order. Pure: the same platform and env always give the same list.
+ *
+ *   1. CAREER_AGENT_CHROMIUM — an executable path the user named.
+ *   2. CAREER_AGENT_BROWSER  — msedge, chrome or chromium. "chromium" skips the installed browsers.
+ *   3. The platform default  — win32: msedge, chrome · darwin: chrome, msedge · linux: chrome.
+ *   4. Playwright's bundled Chromium, always last.
+ *
+ * Each entry is { label, options }; options are what it adds to the Playwright launch options.
+ */
+export function browserCandidates(platform = process.platform, env = process.env) {
+  const list = [];
+  const add = (c) => {
+    if (!list.some((x) => x.label === c.label)) list.push(c);
+  };
+  const installed = (channel) => ({ label: `${channel} (installed)`, options: { channel } });
+  const bundled = { label: "bundled chromium", options: {} };
+
+  const exe = String(env.CAREER_AGENT_CHROMIUM || "").trim();
+  if (exe) add({ label: `${exe} (CAREER_AGENT_CHROMIUM)`, options: { executablePath: exe } });
+
+  const wanted = String(env.CAREER_AGENT_BROWSER || "").trim().toLowerCase();
+  if (wanted && !BROWSER_NAMES.includes(wanted)) {
+    throw setupError(
+      `career-agent: CAREER_AGENT_BROWSER is ${JSON.stringify(env.CAREER_AGENT_BROWSER)} — use ${BROWSER_NAMES.join(", ")}, or leave it unset.`,
+    );
+  }
+  if (wanted === "chromium") {
+    add(bundled);
+    return list;
+  }
+  if (wanted) add(installed(wanted));
+
+  const defaults = { win32: ["msedge", "chrome"], darwin: ["chrome", "msedge"] }[platform] || ["chrome"];
+  for (const channel of defaults) add(installed(channel));
+  add(bundled);
+  return list;
+}
+
+let announced = "";
+
+/**
+ * Launch the first browser in browserCandidates() that starts, and print which one in one line,
+ * e.g. `browser: chrome (installed)`. `extra` is the usual Playwright launch options; the candidate
+ * decides `channel` and `executablePath`. With `persistentDir` it returns a persistent context.
+ * If nothing starts it throws one plain message naming both fixes — hand it to exitIfNoBrowser().
+ */
+export async function launchBrowser(extra = {}, { persistentDir = null, platform = process.platform, env = process.env } = {}) {
+  const { chromium } = await import("playwright");
+  const rest = { ...extra };
+  delete rest.channel;
+  delete rest.executablePath;
+  const failed = [];
+  for (const c of browserCandidates(platform, env)) {
+    const options = { ...rest, ...c.options };
+    try {
+      const b = persistentDir
+        ? await chromium.launchPersistentContext(persistentDir, options)
+        : await chromium.launch(options);
+      const line = `browser: ${c.label}${failed.length ? `, after ${failed.join(", ")} did not start` : ""}`;
+      if (line !== announced) console.log((announced = line));
+      return b;
+    } catch {
+      failed.push(c.label);
+    }
+  }
+  throw setupError(`career-agent: no browser could be started (tried ${failed.join(", ")}). ${NO_BROWSER_HELP}`);
+}
+
+/** For `.catch()` after launchBrowser(): print a browser-setup message alone (no stack) and exit 3. */
+export function exitIfNoBrowser(e) {
+  if (e?.code !== BROWSER_SETUP) throw e;
+  console.error(e.message);
+  process.exit(3);
+}
+
 /** A port for a self-test server: CAREER_AGENT_TEST_PORT + offset if set, else 0 (the OS picks). */
 export function testPort(offset = 0) {
   const base = Number(process.env.CAREER_AGENT_TEST_PORT || 0);
