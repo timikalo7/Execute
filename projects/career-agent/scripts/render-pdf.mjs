@@ -7,7 +7,8 @@
  *
  * It does three things, and the third is the one that matters:
  *
- *   1. PRINTS  each output/<slug>/cv.html through headless Chromium to A4, fonts embedded.
+ *   1. PRINTS  each output/<slug>/cv.html to A4, fonts embedded, through the browser you already
+ *              have (Edge, Chrome) — Playwright's bundled Chromium only if neither starts.
  *   2. FITS    the layout onto ONE page by walking a tightening ladder (FIT_STEPS in cv-html.mjs)
  *              and letting the browser measure each attempt. A student CV is one page, so a
  *              two-page result is a bug, not a variant.
@@ -32,11 +33,10 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { chromium } from "playwright";
 import { assess } from "./eligibility.mjs";
 import { FIT_STEPS, cvHtml, cvMarkdown } from "./cv-html.mjs";
 import { cvVariantFor, loadFound, pdfNameFor, slugFor } from "./tailor.mjs";
-import { browserCandidates, chromiumOptions, loadExample, loadProfile, PROJECT_ROOT } from "./profile.mjs";
+import { browserCandidates, exitIfNoBrowser, launchBrowser, loadExample, loadProfile, PROJECT_ROOT } from "./profile.mjs";
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
 import { pathToFileURL } from "node:url";
 
@@ -111,7 +111,7 @@ async function selfTest() {
     { name: "a CV whose text is a bitmap is caught", html: raster, expectOk: false },
   ];
 
-  const browser = await chromium.launch(chromiumOptions());
+  const browser = await launchBrowser().catch(exitIfNoBrowser);
   const page = await browser.newPage();
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cvselftest-"));
   let failed = 0;
@@ -227,7 +227,7 @@ async function run() {
     process.exit(2);
   }
 
-  const browser = await chromium.launch(chromiumOptions());
+  const browser = await launchBrowser().catch(exitIfNoBrowser);
   const page = await browser.newPage();
   let rendered = 0;
   let skipped = 0;

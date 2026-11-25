@@ -36,7 +36,7 @@ import readline from "node:readline";
 import { chromium } from "playwright";
 import { answerBlocks } from "./answers.mjs";
 import { loadFound, pdfNameFor, slugFor } from "./tailor.mjs";
-import { cdpPort, chromiumOptions, graduationYear, inRange, loadExample, loadProfile, PROJECT_ROOT, readJson, targetCountries, testPort } from "./profile.mjs";
+import { cdpPort, chromiumOptions, exitIfNoBrowser, graduationYear, inRange, launchBrowser, loadExample, loadProfile, NO_BROWSER_HELP, PROJECT_ROOT, readJson, targetCountries, testPort } from "./profile.mjs";
 
 const ROOT = process.cwd();
 const PROFILE_DIR = path.join(ROOT, ".browser-profile");
@@ -407,7 +407,9 @@ async function run() {
   // bundled Chromium is the easiest build on the internet to spot. Two changes, in order:
   //
   //   1. Drive a REAL installed browser. `channel: "msedge"` uses the Microsoft Edge already on a
-  //      Windows machine; "chrome" works too. (Opera GX is NOT a Playwright channel.)
+  //      Windows machine; on macOS and Linux the default is "chrome". --browser= or
+  //      CAREER_AGENT_BROWSER picks another (msedge, chrome, or chromium for Playwright's own build).
+  //      (Opera GX is NOT a Playwright channel.)
   //   2. Turn off the switches that announce automation: --disable-blink-features=AutomationControlled,
   //      and drop --enable-automation. With both, `navigator.webdriver` reads false (see the self-test).
   //
@@ -415,8 +417,13 @@ async function run() {
   // timing, mouse movement and IP reputation. If a site still refuses, the answer is NOT a cleverer
   // disguise — it is `answers.md`, which holds every answer as a paste block so the form can be filled
   // by hand in your everyday browser. Nothing here pretends to be a different person.
-  const wanted = (args.find((a) => a.startsWith("--browser=")) || "").split("=")[1];
-  const channel = wanted === "chromium" ? undefined : wanted || (process.platform === "win32" ? "msedge" : undefined);
+  const wanted = ((args.find((a) => a.startsWith("--browser=")) || "").split("=")[1] || process.env.CAREER_AGENT_BROWSER || "")
+    .trim()
+    .toLowerCase();
+  // Defaults: Edge on Windows, Chrome elsewhere — except that a CAREER_AGENT_CHROMIUM path, which
+  // macOS and Linux used before Chrome became their default, is still used there when it is set.
+  const fallbackChannel = process.platform === "win32" ? "msedge" : process.env.CAREER_AGENT_CHROMIUM ? undefined : "chrome";
+  const channel = wanted === "chromium" ? undefined : wanted || fallbackChannel;
 
   const launch = {
     headless,
@@ -472,8 +479,13 @@ async function run() {
       if (!channel) throw e;
       console.log(`browser: could not launch ${channel} (${String(e.message).split("\n")[0].slice(0, 80)})`);
       console.log(`         falling back to Playwright's bundled Chromium, which bot checks flag more often.`);
-      console.log(`         Install Microsoft Edge, or pass --browser=chrome if you have Google Chrome.`);
-      ctx = await chromium.launchPersistentContext(PROFILE_DIR, chromiumOptions({ ...launch, channel: undefined }));
+      const other = channel === "msedge" ? ["Microsoft Edge", "chrome"] : ["Google Chrome", "msedge"];
+      console.log(`         Install ${other[0]}, or pass --browser=${other[1]} if you have that browser instead.`);
+      ctx = await chromium.launchPersistentContext(PROFILE_DIR, chromiumOptions({ ...launch, channel: undefined })).catch((e2) => {
+        if (!/Executable doesn't exist/.test(String(e2.message))) throw e2;
+        console.error(`career-agent: no browser could be started (tried ${channel} (installed), bundled chromium). ${NO_BROWSER_HELP}`);
+        process.exit(3);
+      });
     }
   }
 
@@ -900,7 +912,7 @@ async function selfTest() {
   await new Promise((r) => server.listen(testPort(0), "127.0.0.1", r));
   const base = `http://127.0.0.1:${server.address().port}`;
 
-  const browser = await chromium.launch(chromiumOptions());
+  const browser = await launchBrowser().catch(exitIfNoBrowser);
   const page = await browser.newPage();
   let failed = 0;
   const check = (name, ok, detail = "") => {
@@ -961,7 +973,7 @@ async function selfTest() {
   // trap is deleted by script after 1200ms. One run must WAIT and come back armed, and a form that
   // never arms must come back NOT armed with the trap named.
   {
-    const hp = await chromium.launch(chromiumOptions());
+    const hp = await launchBrowser();
     const hpage = await hp.newPage();
 
     await hpage.goto(`${base}/honeypot-like.html`, { waitUntil: "domcontentloaded" });
@@ -984,7 +996,7 @@ async function selfTest() {
   // --remote-debugging-port, connect over CDP, and drive a page in the context that was already there.
   {
     const port = await cdpPort();
-    const real = await chromium.launch(chromiumOptions({ args: [`--remote-debugging-port=${port}`] }));
+    const real = await launchBrowser({ args: [`--remote-debugging-port=${port}`] });
     const attached = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
     const actx = attached.contexts()[0] || (await attached.newContext());
     const ap = actx.pages()[0] || (await actx.newPage());
@@ -1002,12 +1014,12 @@ async function selfTest() {
   // the launch options cannot quietly undo it.
   {
     const probeDir = fs.mkdtempSync(path.join(os.tmpdir(), "pwprobe-"));
-    const probe = await chromium.launchPersistentContext(probeDir, chromiumOptions({
+    const probe = await launchBrowser({
       headless: true,
       viewport: { width: 1280, height: 900 },
       args: ["--disable-blink-features=AutomationControlled"],
       ignoreDefaultArgs: ["--enable-automation"],
-    }));
+    }, { persistentDir: probeDir });
     const pp = await probe.newPage();
     await pp.goto(`${base}/teamtailor-like.html`, { waitUntil: "domcontentloaded" });
     const wd = await pp.evaluate("navigator.webdriver");

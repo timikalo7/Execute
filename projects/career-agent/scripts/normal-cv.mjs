@@ -26,9 +26,8 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { chromium } from "playwright";
 import { auditText, pdfText, renderOne } from "./render-pdf.mjs";
-import { chromiumOptions, loadExample, loadProfile, normalCvPaths } from "./profile.mjs";
+import { exitIfNoBrowser, launchBrowser, loadExample, loadProfile, normalCvPaths } from "./profile.mjs";
 
 const ROOT = process.cwd();
 
@@ -51,7 +50,7 @@ export async function extract(profile, { root = ROOT, pdfPath = null } = {}) {
 }
 
 /**
- * A fictional non-technical CV for the example profile, printed through Chromium — so the self-test
+ * A fictional non-technical CV for the example profile, printed through a browser — so the self-test
  * exercises the real extract-and-audit path on a real PDF without anyone's real CV being present.
  */
 function fixtureCvHtml(profile) {
@@ -78,7 +77,7 @@ async function selfTest() {
   // A real PDF, printed from fictional data, extracted and audited by the shipped code path.
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "normalcv-selftest-"));
   const pdfPath = path.join(tmp, "Alex-Example-CV-Normal.pdf");
-  const browser = await chromium.launch(chromiumOptions());
+  const browser = await launchBrowser().catch(exitIfNoBrowser);
   try {
     const page = await browser.newPage();
     await renderOne(page, fixtureCvHtml(profile), pdfPath);
