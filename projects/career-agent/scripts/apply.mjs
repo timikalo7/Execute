@@ -479,8 +479,8 @@ async function run() {
       if (!channel) throw e;
       console.log(`browser: could not launch ${channel} (${String(e.message).split("\n")[0].slice(0, 80)})`);
       console.log(`         falling back to Playwright's bundled Chromium, which bot checks flag more often.`);
-      const other = channel === "msedge" ? ["Microsoft Edge", "chrome"] : ["Google Chrome", "msedge"];
-      console.log(`         Install ${other[0]}, or pass --browser=${other[1]} if you have that browser instead.`);
+      const [install, alt, altName] = channel === "msedge" ? ["Microsoft Edge", "chrome", "Google Chrome"] : ["Google Chrome", "msedge", "Microsoft Edge"];
+      console.log(`         Install ${install}, or pass --browser=${alt} if you have ${altName}.`);
       ctx = await chromium.launchPersistentContext(PROFILE_DIR, chromiumOptions({ ...launch, channel: undefined })).catch((e2) => {
         if (!/Executable doesn't exist/.test(String(e2.message))) throw e2;
         console.error(`career-agent: no browser could be started (tried ${channel} (installed), bundled chromium). ${NO_BROWSER_HELP}`);
