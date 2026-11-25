@@ -1,35 +1,35 @@
 {
-  "_why": "THE DEBT RATCHET. These markers are honest conventions — TODO(keys) scaffolds around a missing credential, NOT CHECKED refuses to report a skipped check as done. That honesty is why they grow: writing one is virtuous and nothing ever closes one. Each pile now carries a counted budget and a reason. Over budget FAILS the push; under budget ratchets down. The number can only go down. Ships with every pile at 0 and no history: these numbers are per-repo state, so they baseline against your own tree on first run.",
+  "_why": "THE DEBT RATCHET. These markers are honest conventions — TODO(keys) scaffolds around a missing credential, NOT CHECKED refuses to report a skipped check as done. That honesty is why they grow: writing one is virtuous and nothing ever closes one. Each pile now carries a counted budget and a reason. Over budget FAILS the push; under budget ratchets down. The number can only go down. Ships baselined against this repository's own tree (2026-11-25, owner-approved), so a fresh clone passes its own gate. If you add projects of your own, re-baseline once with `node .claude/skills/security-gate/debt-ratchet.mjs --baseline` and commit the result on its own.",
   "budget": {
     "todo-keys": {
-      "max": 0,
-      "reason": "A credential the build was scaffolded around, per the scaffold-around-and-continue rule (marker + a SETUP-KEYS.md row). Ships at 0: baseline it against YOUR tree on the first run, so the ratchet counts your debt and not someone else's.",
-      "reviewed": "seed"
+      "max": 15,
+      "reason": "A credential the build was scaffolded around, per the scaffold-around-and-continue rule (marker + a SETUP-KEYS.md row). Baselined 2026-11-25 against this repository's own tree at 15, owner-approved, so pushes to the public repo are judged by the ratchet instead of failing on seed zeros. Frozen: no NEW ones without closing an old one or raising this deliberately.",
+      "reviewed": "2026-11-25"
     },
     "todo-credits": {
-      "max": 0,
-      "reason": "A step skipped because a credit balance would not cover it. Ships at 0: baseline it against YOUR tree on the first run, so the ratchet counts your debt and not someone else's.",
-      "reviewed": "seed"
+      "max": 2,
+      "reason": "A step skipped because a credit balance would not cover it. Baselined 2026-11-25 against this repository's own tree at 2, owner-approved, so pushes to the public repo are judged by the ratchet instead of failing on seed zeros. Frozen: no NEW ones without closing an old one or raising this deliberately.",
+      "reviewed": "2026-11-25"
     },
     "not-checked": {
-      "max": 0,
-      "reason": "A check that was skipped, reported honestly as skipped rather than as done. Ships at 0: baseline it against YOUR tree on the first run, so the ratchet counts your debt and not someone else's.",
-      "reviewed": "seed"
+      "max": 30,
+      "reason": "A check that was skipped, reported honestly as skipped rather than as done. Baselined 2026-11-25 against this repository's own tree at 30, owner-approved, so pushes to the public repo are judged by the ratchet instead of failing on seed zeros. Frozen: no NEW ones without closing an old one or raising this deliberately.",
+      "reviewed": "2026-11-25"
     },
     "unverified": {
-      "max": 0,
-      "reason": "A claim recorded without evidence behind it. Ships at 0: baseline it against YOUR tree on the first run, so the ratchet counts your debt and not someone else's.",
-      "reviewed": "seed"
+      "max": 11,
+      "reason": "A claim recorded without evidence behind it. Baselined 2026-11-25 against this repository's own tree at 11, owner-approved, so pushes to the public repo are judged by the ratchet instead of failing on seed zeros. Frozen: no NEW ones without closing an old one or raising this deliberately.",
+      "reviewed": "2026-11-25"
     },
     "still-open": {
-      "max": 0,
-      "reason": "A decision or thread left unresolved. Ships at 0: baseline it against YOUR tree on the first run, so the ratchet counts your debt and not someone else's.",
-      "reviewed": "seed"
+      "max": 4,
+      "reason": "A decision or thread left unresolved. Baselined 2026-11-25 against this repository's own tree at 4, owner-approved, so pushes to the public repo are judged by the ratchet instead of failing on seed zeros. Frozen: no NEW ones without closing an old one or raising this deliberately.",
+      "reviewed": "2026-11-25"
     },
     "your-call": {
-      "max": 0,
-      "reason": "A decision handed to a human and not yet made. Ships at 0: baseline it against YOUR tree on the first run, so the ratchet counts your debt and not someone else's.",
-      "reviewed": "seed"
+      "max": 1,
+      "reason": "A decision handed to a human and not yet made. Baselined 2026-11-25 against this repository's own tree at 1, owner-approved, so pushes to the public repo are judged by the ratchet instead of failing on seed zeros. Frozen: no NEW ones without closing an old one or raising this deliberately.",
+      "reviewed": "2026-11-25"
     }
   }
 }
