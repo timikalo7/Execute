@@ -150,3 +150,18 @@ Windows ships Microsoft Edge, most Macs have Google Chrome, and Playwright can d
   `.env.example`, `LAUNCH-CHECKLIST.md` and the `.cmd` launchers still mention
   `npx playwright install chromium`; they were outside this ticket.
 - A separate-agent evaluation of this change has not been run yet.
+
+**Follow-up (b77b077).** `.env.example` now lists `CAREER_AGENT_BROWSER` and the new meaning of
+`CAREER_AGENT_CHROMIUM`; `LAUNCH-CHECKLIST.md` step 2 makes the download conditional. The `.cmd`
+launchers keep their conditional "if it mentions a browser" hint, which is still valid as the
+fallback. `prove.mjs` and `prove-edge.mjs` are unchanged (not workshop steps).
+
+**Separate evaluation (fresh agent, spec + branch only).** In a fresh clone at b77b077: `npm test`
+exit 0 with the default env and with an empty `PLAYWRIGHT_BROWSERS_PATH` (0 entries afterwards, so
+nothing downloaded); the example CV renders to one A4 page with the same fonts and layout as the
+bundled render; `CAREER_AGENT_BROWSER=edge` and `chromium`-with-no-bundled give one-line messages
+and exit 3; `msedge` with no Edge and a bad `CAREER_AGENT_CHROMIUM` fall back to Chrome; the diff
+changes no submit or click line. Minor, not fixed: apply's `--browser=edge` argument is not
+validated (it falls back with a hint). Edge on Windows and macOS: NOT CHECKED.
+
+Evaluation (separate agent): PASS — full `npm test` exits 0 with no bundled browser, the example CV renders identically through installed Chrome, bad browser settings give one-line messages with the specified fallback, and the never-submit code is unchanged; Edge on Windows and macOS are NOT CHECKED.
