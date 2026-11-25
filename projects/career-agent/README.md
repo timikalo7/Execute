@@ -45,17 +45,26 @@ version number.
 git clone <the repository URL your workshop gives you>
 cd <the cloned folder>/projects/career-agent
 npm ci
-npx playwright install chromium
 ```
 
-`npx playwright install chromium` downloads a browser (about 150 MB) once. Check everything works:
+You do not need to download a browser. The tool makes your PDFs with a browser you already have:
+Windows already has Microsoft Edge, and most Macs have Google Chrome, so the tool uses that. Check
+everything works:
 
 ```
 npm test
 ```
 
 Every self-test runs against a fictional person (Alex Example), so this passes before you have a
-profile.
+profile. It prints the browser it used, for example `browser: msedge (installed)`.
+
+Only if the tool says it found no browser (`career-agent: no browser could be started …`), install
+Google Chrome or Microsoft Edge, or run this once — it downloads Playwright's own browser, about
+150 MB:
+
+```
+npx playwright install chromium
+```
 
 **3. Put your CV in `profile/cv/`** — a `.pdf`, `.docx` or `.txt`. That folder is gitignored.
 
@@ -134,7 +143,8 @@ board for you.
 | `'git' is not recognized` / `git: command not found` | Install Git (step 1), then open a **new** terminal. |
 | PowerShell: `npm.ps1 cannot be loaded because running scripts is disabled on this system` | Windows blocks PowerShell scripts by default. Run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once (answer `Y`), then run the command again. Or use `npm.cmd` in place of `npm` (and `npx.cmd` in place of `npx`), which this setting does not block. |
 | `career-agent: no profile at profile/master-profile.json` | Run `npm run setup` or `/career-onboard`, then `npm run profile:check`. |
-| `browserType.launch: Executable doesn't exist at …` | Run `npx playwright install chromium`. On a locked-down machine with Chrome installed, set `CAREER_AGENT_CHROMIUM` to its path instead. |
+| `career-agent: no browser could be started (tried …)` | No Edge or Chrome started, and Playwright's own browser is not downloaded. Install Google Chrome or Microsoft Edge, or run `npx playwright install chromium` once (about 150 MB). |
+| `browserType.launch: Executable doesn't exist at …` | Playwright's own browser is not downloaded. If you set `CAREER_AGENT_BROWSER=chromium` or `--browser=chromium` (Playwright's browser only), remove it so the tool uses your Edge or Chrome. Or run `npx playwright install chromium`. On a locked-down machine, set `CAREER_AGENT_CHROMIUM` to the path of a Chrome or Chromium program. |
 | `career-agent: no jobs/found.json yet` | Run `npm run discover` first (or `npm run daily`). |
 | `RESULT: FAIL — N claim(s) not traceable to the profile` | The named number, year or name is not in your profile. If it is true, add it to the profile with evidence; if not, remove it. Never edit the check. |
 | `ground` flags a year or name that comes from the posting's own title, e.g. `year "2027" — profile covers no work in this year` for an event called "Example Hackathon 2027" | That is the posting's name, not your claim. Search the flagged file for it. In the `# Gaps and fit — …` title of `gap.md`, or the `Ordered for: …` note at the end of `cv.md` (a note for you, not in the file you upload), it is only the posting's name. In a CV line about you, remove it from that line — or, if you took part in the event, add the event to your profile. |
@@ -150,7 +160,8 @@ see `.env.example`.
 |---|---|---|
 | `CAREER_AGENT_CONTACT` | Contact string (e.g. an email) sent in the User-Agent to job-board APIs | `career-agent (personal job search)` |
 | `CAREER_AGENT_PROFILE` | Path to the profile the scripts read | `profile/master-profile.json` |
-| `CAREER_AGENT_CHROMIUM` | Path to a Chrome/Chromium executable for Playwright | Playwright's own browser |
+| `CAREER_AGENT_BROWSER` | Which browser to try first: `msedge`, `chrome`, or `chromium` (Playwright's own download, and nothing else) | Windows: Edge, then Chrome · macOS: Chrome, then Edge · Linux: Chrome · then Playwright's own browser |
+| `CAREER_AGENT_CHROMIUM` | Path to a Chrome/Chromium program. PDFs and self-tests try it before any other browser; `apply` uses it on macOS and Linux | not set |
 | `CAREER_AGENT_TEST_PORT` | Fixed port for the self-tests' local fixture server | a free port |
 | `CAREER_AGENT_CDP_PORT` | Fixed port for the self-tests' attach-to-browser check | a free port |
 

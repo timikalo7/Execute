@@ -87,3 +87,66 @@ rejected with a confusing message; an education end of "present" triggers a misl
 graduation-year recommendation.
 
 Evaluation (separate agent): PASS — all five fixes hold under real runs; npm test passes clean; ground-check unchanged; privacy scan passes and can fail; a live claude -p replied in plain English.
+
+## 2026-11-25 — PDFs use the browser you already have; the 150 MB download is a fallback
+
+**Why.** Step 2 of the workshop quickstart made every attendee download Playwright's own Chromium
+(about 150 MB). On one shared Wi-Fi network, that is the step where a room of laptops stalls.
+Windows ships Microsoft Edge, most Macs have Google Chrome, and Playwright can drive both.
+
+**What changed.**
+- `scripts/profile.mjs`: `browserCandidates(platform, env)` (pure) gives the order to try:
+  `CAREER_AGENT_CHROMIUM`, then `CAREER_AGENT_BROWSER` (`msedge`, `chrome` or `chromium`), then the
+  platform default (Windows: Edge, Chrome · macOS: Chrome, Edge · Linux: Chrome), then the bundled
+  Chromium last. `launchBrowser(extra)` tries each in turn and prints the one it used in one line
+  (`browser: chrome (installed)`, or `browser: bundled chromium, after msedge (installed) did not
+  start`). When nothing starts, it throws one sentence that names both fixes; `exitIfNoBrowser`
+  prints it with no stack trace and exits 3. `chromiumOptions()` is unchanged.
+- `render-pdf.mjs` and `normal-cv.mjs` call `launchBrowser()`.
+- `apply.mjs`: macOS and Linux now default to the `chrome` channel (Windows keeps `msedge`), with
+  the same one-step fallback to the bundled Chromium as before. `CAREER_AGENT_BROWSER` works like
+  `--browser=`. If the fallback browser is missing too, one line names both fixes. Its self-test
+  launches go through `launchBrowser()`. The never-submit rule and `SUBMIT_LIKE` are unchanged.
+- README step 2 no longer runs `npx playwright install chromium`; it is "only if the tool says it
+  found no browser". A troubleshooting row covers the no-browser message, the `Executable doesn't
+  exist` row is updated, and `CAREER_AGENT_BROWSER` is in the Setup keys table.
+
+**Decisions.**
+- `CAREER_AGENT_BROWSER=chromium` means Playwright's own Chromium only (after a
+  `CAREER_AGENT_CHROMIUM` path, if one is set), not "Chromium first, then the installed browsers".
+  That is what `--browser=chromium` already meant in `apply`, and it is the only way to force the
+  bundled build on a machine that has Chrome.
+- An unknown `CAREER_AGENT_BROWSER` value (for example `edge`) is refused with the valid values, not
+  ignored.
+- In `apply`, a `CAREER_AGENT_CHROMIUM` path still wins on macOS and Linux when no browser is named,
+  as it did before Chrome became the default there, so nobody who set it gets a different browser.
+
+**Proven (in a Linux container).**
+- `npm test` exits 0 three ways: default; with `PLAYWRIGHT_BROWSERS_PATH` set to an empty directory,
+  so no bundled browser exists (the output shows `browser: chrome (installed)`); and with
+  `CAREER_AGENT_BROWSER=chromium` (`browser: bundled chromium`). Before this change the
+  empty-directory run failed with `Executable doesn't exist`. PASS rows: 211, up from 203.
+- `npm run pdf` with no bundled browser rendered the example CV to a one-page PDF and exited 0.
+- Fallback at run time: a nonexistent `CAREER_AGENT_CHROMIUM` falls to Chrome;
+  `CAREER_AGENT_BROWSER=msedge` (no Edge here) falls to Chrome; with only the bundled build allowed,
+  it falls to that.
+- The no-browser case exits 3 with one line that names both fixes. `render-pdf --self-test` runs it
+  as a real child process. Eight new self-test rows. Four broken copies of `profile.mjs` (Windows
+  order swapped, the override ignored, a stack trace leaking, the download fix dropped from the
+  message) each turned exactly one row red.
+- The same `cv.html` printed by the bundled Chromium (141) and by the installed Chrome (158): both
+  one A4 page, the same embedded fonts (Libre Franklin, Source Serif 4), the same line breaks and
+  section order, and 42 text lines at identical heights on a page-1 raster. About 6% of raster
+  pixels differ, all from sub-pixel horizontal glyph spacing. Both pass the ATS text check; in
+  `pdftotext`, Chrome's PDF keeps the spaces in the date column that the bundled build's PDF loses.
+
+**Not checked.**
+- Edge on Windows: there is no Windows machine here. The `msedge` order is a self-test row, not a
+  launch.
+- macOS, and Safari (the `chrome` and `msedge` channels are Chromium; Safari is never used).
+- A retail Google Chrome install: this container's `google-chrome` is a wrapper around a Chrome for
+  Testing build. The `chrome` channel lookup and launch are real; the binary is not retail Chrome.
+- `prove.mjs` and `prove-edge.mjs` still launch the bundled Chromium directly (not in `npm test`).
+  `.env.example`, `LAUNCH-CHECKLIST.md` and the `.cmd` launchers still mention
+  `npx playwright install chromium`; they were outside this ticket.
+- A separate-agent evaluation of this change has not been run yet.
