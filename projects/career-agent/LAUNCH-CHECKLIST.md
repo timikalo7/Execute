@@ -8,7 +8,7 @@ Before the session:
 
 In the session:
 1. `git clone <this repository URL> && cd Execute/projects/career-agent` (the organiser shares the link)
-2. `npm ci && npx playwright install chromium`
+2. `npm ci`, then `npm test` (it uses the Edge or Chrome already installed; only if it says no browser was found, run `npx playwright install chromium`)
 3. Put your CV in `profile/cv/`.
 4. Claude Code: `/career-onboard` — or terminal: `npm run setup`.
 5. `npm run profile:check` until it passes.
