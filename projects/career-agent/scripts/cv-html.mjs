@@ -34,6 +34,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { bestAchievements, matchSkills, period, rank, wantedFor } from "./select.mjs";
+import { loadExample, PROJECT_ROOT, readJson } from "./profile.mjs";
 
 const esc = (s) =>
   String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -46,6 +47,23 @@ const SKILL_GROUP_LABELS = {
   data_and_pipelines: "Data &amp; Pipelines",
   tools_and_practices: "Tools &amp; Practices",
 };
+
+/**
+ * The skills, one line per group: { key, labelled, ordered }. Anything the posting explicitly named
+ * is pulled to the front of its group, so the match is visible without reordering the truth.
+ *
+ * A group label is printed only when it tells the reader something. With exactly one group, or a
+ * group the CV itself calls "Skills" (any case), the SKILLS heading already says it: the CV printed
+ * "SKILLS" and then "Skills: Canva, …". With several named groups the labels are as before.
+ */
+function skillGroups(profile, have) {
+  const groups = Object.entries(profile.skills || {}).filter(([k, list]) => !k.startsWith("_") && Array.isArray(list) && list.length);
+  return groups.map(([key, list]) => {
+    const names = list.map((s) => s.name);
+    const ordered = [...names.filter((n) => have.includes(n)), ...names.filter((n) => !have.includes(n))];
+    return { key, labelled: groups.length > 1 && key.trim().toLowerCase() !== "skills", ordered };
+  });
+}
 
 /** The tightening ladder render-pdf.mjs walks to force one page. Step 0 is the comfortable setting. */
 export const FIT_STEPS = [
@@ -140,15 +158,13 @@ export function cvHtml(profile, item, { fontDir, fit = FIT_STEPS[0] }) {
       modules.length ? `Relevant classes: ${modules.join(", ")}` : "",
     ].filter(Boolean)) + (school ? entry(esc(school.institution), dateOf(school), [school.grade].filter(Boolean)) : "");
 
-  // -- SKILLS — one line per group. Anything the posting explicitly named is pulled to the front of
-  // its group, so the match is visible without reordering the truth.
-  const skills = Object.entries(profile.skills || {})
-    .filter(([k, list]) => !k.startsWith("_") && Array.isArray(list) && list.length)
-    .map(([k, list]) => {
-      const names = list.map((s) => s.name);
-      const ordered = [...names.filter((n) => have.includes(n)), ...names.filter((n) => !have.includes(n))];
-      return `<div class="kv"><b>${SKILL_GROUP_LABELS[k] || esc(k.replace(/_/g, " "))}:</b> ${esc(ordered.join(", "))}</div>`;
-    })
+  // -- SKILLS — one line per group (skillGroups above).
+  const skills = skillGroups(profile, have)
+    .map(({ key: k, labelled, ordered }) =>
+      labelled
+        ? `<div class="kv"><b>${SKILL_GROUP_LABELS[k] || esc(k.replace(/_/g, " "))}:</b> ${esc(ordered.join(", "))}</div>`
+        : `<div class="kv">${esc(ordered.join(", "))}</div>`,
+    )
     .join("");
 
   // -- RESEARCH — its own section above work, for entries marked cv_section: "research" ----------
@@ -232,13 +248,10 @@ ${sec(
 )}
 ${sec(
   "Skills",
-  Object.entries(profile.skills || {})
-    .filter(([k, list]) => !k.startsWith("_") && Array.isArray(list) && list.length)
-    .map(([k, list]) => {
-      const names = list.map((s) => s.name);
-      const ordered = [...names.filter((n) => have.includes(n)), ...names.filter((n) => !have.includes(n))];
-      return `**${(SKILL_GROUP_LABELS[k] || k.replace(/_/g, " ")).replace(/&amp;/g, "&")}:** ${ordered.join(", ")}`;
-    })
+  skillGroups(profile, have)
+    .map(({ key: k, labelled, ordered }) =>
+      labelled ? `**${(SKILL_GROUP_LABELS[k] || k.replace(/_/g, " ")).replace(/&amp;/g, "&")}:** ${ordered.join(", ")}` : ordered.join(", "),
+    )
     .join("\n\n"),
 )}
 ${sec(
@@ -280,3 +293,51 @@ nothing here is written for this application. This note is for you; the file you
 carry it.*
 `;
 }
+
+// ------------------------------------------------------------------ self-test
+// The skills label rule, both ways, through cvHtml and cvMarkdown themselves. The fictional example
+// and the fictional posting only; never the user's profile.
+function selfTest() {
+  let failed = 0;
+  const check = (name, ok, detail = "") => {
+    console.log(`${ok ? "PASS" : "FAIL"}  ${name}${ok ? "" : ` → ${detail}`}`);
+    if (!ok) failed++;
+  };
+  const fontDir = path.join(PROJECT_ROOT, "assets", "fonts");
+  const item = readJson(path.join(PROJECT_ROOT, "scripts", "fixtures", "example-posting.json"));
+  const example = loadExample();
+  const withSkills = (skills) => ({ ...example, skills: { _help: "fictional", ...skills } });
+  const sk = (...names) => names.map((name) => ({ name, evidence: "" }));
+  const htmlSkills = (p) => (/<section><h2>Skills<\/h2>([\s\S]*?)<\/section>/.exec(cvHtml(p, item, { fontDir })) || [])[1] ?? null;
+  const mdSkills = (p) => (/## Skills\n\n([\s\S]*?)\n## /.exec(cvMarkdown(p, item)) || [])[1] ?? null;
+
+  // Several named groups: today's output, byte for byte. The old formula, inline, is the reference.
+  const { have } = matchSkills(example, item.description);
+  const oldOrder = (list) => {
+    const names = list.map((s) => s.name);
+    return [...names.filter((n) => have.includes(n)), ...names.filter((n) => !have.includes(n))];
+  };
+  const oldGroups = Object.entries(example.skills || {}).filter(([k, list]) => !k.startsWith("_") && Array.isArray(list) && list.length);
+  const oldHtml = oldGroups.map(([k, list]) => `<div class="kv"><b>${SKILL_GROUP_LABELS[k] || esc(k.replace(/_/g, " "))}:</b> ${esc(oldOrder(list).join(", "))}</div>`).join("");
+  const oldMd = oldGroups.map(([k, list]) => `**${(SKILL_GROUP_LABELS[k] || k.replace(/_/g, " ")).replace(/&amp;/g, "&")}:** ${oldOrder(list).join(", ")}`).join("\n\n");
+  check(`several named groups (the example's ${oldGroups.length}) print their labels exactly as before (HTML)`, oldGroups.length > 1 && htmlSkills(example) === oldHtml && /<b>Programming:<\/b>/.test(oldHtml), `${htmlSkills(example)}\n  vs\n${oldHtml}`);
+  check("...and in cv.md", mdSkills(example) === `${oldMd}\n` && /\*\*Programming:\*\*/.test(oldMd), JSON.stringify(mdSkills(example)));
+
+  // One group the CV calls "Skills" (a marketing CV's only skills line): no label, in either file.
+  const single = withSkills({ Skills: sk("Canva", "Instagram", "TikTok") });
+  check(`a single "Skills" group prints its items with no label (HTML)`, htmlSkills(single) === `<div class="kv">Canva, Instagram, TikTok</div>`, htmlSkills(single));
+  check("...and in cv.md", mdSkills(single) === "Canva, Instagram, TikTok\n", JSON.stringify(mdSkills(single)));
+  // Empty groups left over from an older skeleton do not count as groups.
+  const leftover = withSkills({ programming: [], web_and_cloud: [], Skills: sk("Canva", "Instagram") });
+  check(`empty leftover groups plus one "Skills" group: still no label`, htmlSkills(leftover) === `<div class="kv">Canva, Instagram</div>` && mdSkills(leftover) === "Canva, Instagram\n", `${htmlSkills(leftover)} | ${JSON.stringify(mdSkills(leftover))}`);
+  const onlyOne = withSkills({ programming: sk("Python", "SQL") });
+  check("exactly one group of any name prints no label", htmlSkills(onlyOne) === `<div class="kv">Python, SQL</div>` && !/Programming/.test(cvMarkdown(onlyOne, item)), htmlSkills(onlyOne));
+  // A "skills" group among named ones loses only its own label.
+  const mixed = withSkills({ skills: sk("Canva"), languages: sk("French") });
+  check(`a "skills" group among several named groups prints unlabelled; the others keep their labels`, htmlSkills(mixed) === `<div class="kv">Canva</div><div class="kv"><b>languages:</b> French</div>` && mdSkills(mixed) === "Canva\n\n**languages:** French\n", `${htmlSkills(mixed)} | ${JSON.stringify(mdSkills(mixed))}`);
+
+  console.log(failed ? `\nself-test FAILED (${failed})` : "\nself-test passed — one group or a \"Skills\" group prints no label; several named groups print theirs as before");
+  process.exit(failed ? 1 : 0);
+}
+
+if (process.argv[1] && process.argv[1].endsWith("cv-html.mjs") && process.argv.includes("--self-test")) selfTest();

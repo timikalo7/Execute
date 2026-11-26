@@ -8,7 +8,7 @@
     "profile:check": "node scripts/profile-check.mjs",
     "ground": "node scripts/ground-check.mjs",
     "track": "node scripts/track.mjs",
-    "test": "node scripts/profile-check.mjs --self-test && node scripts/setup.mjs --self-test && node scripts/decisions.mjs --self-test && node scripts/ground-check.mjs --self-test && node scripts/select.mjs --self-test && node scripts/eligibility.mjs --self-test && node scripts/bar.mjs --self-test && node scripts/discover.mjs --self-test && node scripts/tailor.mjs --self-test && node scripts/render-pdf.mjs --self-test && node scripts/normal-cv.mjs --self-test && node scripts/apply.mjs --self-test",
+    "test": "node scripts/profile-check.mjs --self-test && node scripts/setup.mjs --self-test && node scripts/decisions.mjs --self-test && node scripts/ground-check.mjs --self-test && node scripts/select.mjs --self-test && node scripts/eligibility.mjs --self-test && node scripts/bar.mjs --self-test && node scripts/discover.mjs --self-test && node scripts/tailor.mjs --self-test && node scripts/cv-html.mjs --self-test && node scripts/render-pdf.mjs --self-test && node scripts/normal-cv.mjs --self-test && node scripts/apply.mjs --self-test",
     "discover": "node scripts/discover.mjs",
     "dashboard": "node scripts/dashboard.mjs",
     "daily": "node scripts/discover.mjs && node scripts/tailor.mjs && node scripts/render-pdf.mjs && node scripts/cowork-brief.mjs && node scripts/dashboard.mjs",
