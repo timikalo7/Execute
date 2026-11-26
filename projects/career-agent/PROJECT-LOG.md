@@ -165,3 +165,57 @@ changes no submit or click line. Minor, not fixed: apply's `--browser=edge` argu
 validated (it falls back with a hint). Edge on Windows and macOS: NOT CHECKED.
 
 Evaluation (separate agent): PASS — full `npm test` exits 0 with no bundled browser, the example CV renders identically through installed Chrome, bad browser settings give one-line messages with the specified fallback, and the never-submit code is unchanged; Edge on Windows and macOS are NOT CHECKED.
+
+## 2026-11-26 — J.P. Morgan: student roles only
+
+**Why.** A fresh clone of public main, run with an invented profile, wrote tailored CV folders for
+full-time J.P. Morgan roles: Associate, Vice President, Private Banker and an Investment Banking
+Analyst. The source's comment said the real filtering was "the UK location check here plus the
+existing title rules downstream", but no title rule applied. J.P. Morgan rows travel as
+opportunities, and only job-board rows go through the `INTERN_RE` filter in `main()`.
+
+**What changed.**
+- `scripts/discover.mjs`: new exported pure function `jpmStudentRole(title)`, applied in the
+  J.P. Morgan source after the existing `inRange` location filter. It keeps a student role (an
+  `INTERN_RE` word, or graduate / apprentice / early careers / undergraduate / industrial placement,
+  or a student-programme word such as "summer"), never a title that `EXCLUDE_RE` rules out. It drops
+  a senior title (Associate, Vice President, Director, Head of, Lead, Senior, Principal, Banker)
+  unless the same title also names a student programme. "Summer Associate" is kept; "Product
+  Controller Associate" is dropped. The source comment now says the title rule is applied there.
+- Self-test: 6 KEPT titles, 7 DROPPED titles, and one row that runs the source's real `fetchAll`
+  on a stubbed API answer, so a rule that exists but is not wired in fails. `selfTest` is now async
+  for that row. `INTERN_RE`, `EXCLUDE_RE`, `TECH_RE`, `inRange` and every other source are unchanged.
+
+**Decision.** The ticket's literal "student role" test (`INTERN_RE` or graduate / apprentice / ...)
+does not match "Summer Associate", but the same ticket requires that title to be kept. "summer"
+therefore counts as a student word, together with the other student-programme words that already
+excuse a senior title. A mutant with the literal test turns the "Summer Associate" row red.
+
+**Proven.**
+- `npm test` exits 0. PASS rows (lines that start with PASS): 226 before, 240 after (+14). The
+  never-submit self-test still passes.
+- Rows can fail. In a scratch copy outside the repository: removing the `.filter` line from the
+  source turns the wiring row red (exit 1); a rule that keeps everything turns all 7 DROPPED rows
+  and the wiring row red; a rule that keeps nothing turns all 6 KEPT rows and the wiring row red;
+  removing the senior exception, or using the literal student test, turns the "Summer Associate"
+  row red; removing the `EXCLUDE_RE` check turns the "Internship Program Manager" row red.
+- Live, with the example profile set to London and Edinburgh (countries United Kingdom, UK):
+  J.P. Morgan 45 found on origin/main, 5 after. The 5 kept are all internships (two Machine Learning
+  Center of Excellence internships, the Quantitative Research off-cycle internship, the Global Markets
+  off-cycle internship, the AI Research Associate Program internship). Every other source's rows
+  were identical by URL (devpost 9, greenhouse 3, junction 1, lever 5, mlh 24, morgan-stanley 10).
+- `npm run tailor`: origin/main wrote three J.P. Morgan folders, all full-time (International
+  Benefits Associate, a Private Banker role, an Investment Banking Analyst role); after the fix it
+  wrote none. With the intake year also set to 2027, so the kept rows are not ruled out as an earlier
+  intake, it wrote exactly the 5 kept internships and no folder for any of the 40 dropped titles.
+
+**Known limits (not fixed, outside this ticket).**
+- `EXCLUDE_RE` contains "sales", so "2027 Commercial & Investment Banking - Sales - Off-cycle
+  Internship - London" is dropped, as a job-board row with that title already was.
+- "2027 Asset Management Investments - Equities - Analyst Training Program - London" is dropped: no
+  student word is in its title, although it reads like a graduate programme.
+- In the ground-truth run, a profile that names York matched "New York" locations through
+  `inRange`. That is a location rule, not changed here.
+
+**Not checked.** Windows and macOS (Linux container only). The live result depends on what
+J.P. Morgan posts on the day. A separate-agent evaluation of this change has not been run yet.
