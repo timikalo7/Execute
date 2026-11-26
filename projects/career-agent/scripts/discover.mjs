@@ -149,7 +149,8 @@ export function excludeRe(profile) {
 // Core computer-science titles and apprenticeships. A title can name a non-tech field and still be
 // one of these ("Global Markets Intern - Markets Engineering", "Marketing Apprentice"), so a profile
 // with its own field words leaves them out unless the profile asks for them. Tech profiles: unchanged.
-const CS_CORE_RE = /\b(software|developers?|engineer|engineering|quant|quantitative|machine learning|cyber|devops|full[- ]?stack|back[- ]?end|front[- ]?end|programmer|programming)\b/i;
+// "quant" and "quantitative" are not here: quant research internships are finance roles.
+const CS_CORE_RE = /\b(software|developers?|engineer|engineering|machine learning|cyber|devops|full[- ]?stack|back[- ]?end|front[- ]?end|programmer|programming)\b/i;
 const APPRENTICE_RE = /\bapprentice(ship)?s?\b/i;
 
 /**
@@ -1228,8 +1229,16 @@ async function selfTest() {
   for (const title of ["Summer Analyst - Markets", "Audit Intern 2027", "Investment Banking Summer Internship"]) t(`finance keeps "${title}" (list and board)`, bothKeep(finance, title), "dropped");
   for (const title of ["Software Engineer Intern", GMME]) t(`finance drops "${title}" (list and board)`, neitherKeeps(finance, title), "kept");
   const financeQuant = { ...finance, target: { ...finance.target, boost_keywords: [...finance.target.boost_keywords, "quant"] } };
-  for (const title of [GMME, "DeFi Quant Research Intern - Digital Assets Market Making"])
-    t(`finance + own field word "quant" keeps "${title}" (list and board)`, bothKeep(financeQuant, title), "dropped");
+  const financeEngineering = { ...finance, target: { ...finance.target, boost_keywords: [...finance.target.boost_keywords, "engineering"] } };
+  t(`finance + own field word "engineering" keeps "${GMME}" (list and board)`, bothKeep(financeEngineering, GMME), "dropped");
+  t(`finance + field word "quant" keeps "DeFi Quant Research Intern - Digital Assets Market Making" (list and board)`, bothKeep(financeQuant, "DeFi Quant Research Intern - Digital Assets Market Making"), "dropped");
+  // Quant is not CS core: a quant research internship that names the field stays for finance.
+  const QUANT_RESEARCH = "2027 Quantitative Research Markets Associate Program – Off-Cycle Internship – London";
+  t(`finance keeps "${QUANT_RESEARCH}" (list and board)`, bothKeep(finance, QUANT_RESEARCH), "dropped");
+  t(`"quant" and "quantitative" are not CS core (finance field words do not unlock anything)`, !fieldNarrow(finance).drops("Quant Research Intern") && !fieldNarrow(finance).drops("Quantitative Analyst Intern") && fieldNarrow(finance).drops("Software Engineer Intern"), "dropped");
+  // ...and marketing still drops both Keyrock quant titles, now through the field filter alone.
+  for (const title of BOARD_DROPPED.slice(0, 2))
+    t(`marketing drops "${title}" by the field filter (no field word), not by CS core`, !marketerRe.test(title) && !fieldNarrow(marketer).drops(title) && neitherKeeps(marketer, title), "kept");
   t(`finance: a hand-added "${GMME}" stays on the board`, matchJobs([{ ...inLondon(GMME), source: "manual" }], finance).length === 1, "dropped");
 
   // Tech: unchanged, on these very titles too.
@@ -1251,7 +1260,7 @@ async function selfTest() {
   const storedBefore = { field_fingerprint: `non-tech|${fieldWordsRe(finance).source}`, jobs: [{ url: "https://example.com/gmme", title: GMME }] };
   t("a finance board stored before these rules is cleared", boardForField(storedBefore, fieldFingerprint(finance)).cleared === true, fieldFingerprint(finance));
   t("the same words with apprenticeships asked for give another fingerprint", fieldWords(boostApprentice).words.join() === fieldWords(roleApprentice).words.join() && fieldFingerprint(boostApprentice) !== fieldFingerprint(roleApprentice), fieldFingerprint(roleApprentice));
-  t("financeQuant's fingerprint says CS titles are kept", fieldFingerprint(financeQuant).endsWith("|cs:kept|apprentice:dropped"), fieldFingerprint(financeQuant));
+  t("financeEngineering's fingerprint says CS titles are kept", fieldFingerprint(financeEngineering).endsWith("|cs:kept|apprentice:dropped"), fieldFingerprint(financeEngineering));
 
   // WHICH EMPLOYER LIST: jobs/sources.json when it exists, else the shipped example for the sector.
   const none = { root: path.join(PROJECT_ROOT, "no-such-dir"), exists: () => false };
