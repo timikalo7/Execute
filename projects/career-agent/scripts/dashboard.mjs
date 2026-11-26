@@ -22,7 +22,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { loadFound, pdfNameFor, slugFor } from "./tailor.mjs";
 import { decisions, isDecided, normalizeUrl } from "./decisions.mjs";
-import { barLabel, boostKeywords, homeRegex, intakeLabel, loadProfile, offerToBeat } from "./profile.mjs";
+import { barLabel, boostKeywords, homeRegex, intakeLabel, loadProfile, offerToBeat, sourcesFileFor } from "./profile.mjs";
 
 const ROOT = process.cwd();
 const found = loadFound();
@@ -203,7 +203,8 @@ const done = { length: hiddenApplied };
 /**
  * The sources this tool CANNOT reach, on the page you actually open.
  *
- * jobs/sources.json records them under tier2_browser_required — a site behind a bot wall, a page that
+ * The employer list discover used (jobs/sources.json, else the shipped example for your sector)
+ * records them under tier2_browser_required — a site behind a bot wall, a page that
  * is an empty JS shell. Recorded only in a JSON file nobody opens, a source could sit there for weeks
  * looking handled. Silence from a blocked source is indistinguishable from "nothing new today", so
  * they are shown here.
@@ -211,7 +212,7 @@ const done = { length: hiddenApplied };
  * So they are rendered here, with what was measured and when. Not as an apology — as a checklist.
  */
 const blockedSection = () => {
-  const p = path.join(ROOT, "jobs", "sources.json");
+  const p = sourcesFileFor(profile, { root: ROOT });
   if (!fs.existsSync(p)) return "";
   const list = JSON.parse(fs.readFileSync(p, "utf8")).tier2_browser_required || [];
   if (!list.length) return "";
@@ -352,7 +353,7 @@ ${
        nothing here is exempt, it is just not buried.</p>${priority.map(card).join("")}</section>`
     : ""
 }
-${section(`Beats ${esc(OFFER ? OFFER.employer : "your bar")}`, "Confirmed internships that are an upgrade — a stronger firm for a technical career, your home city, or more pay. This is the list to work down. Each card's notes say which axis it won on.", beats)}
+${section(`Beats ${esc(OFFER ? OFFER.employer : "your bar")}`, "Confirmed internships that are an upgrade — a stronger firm, your home city, or more pay. This is the list to work down. Each card's notes say which axis it won on.", beats)}
 ${section("Applicable, but not an upgrade", "Passed every eligibility rule, and you could apply — but on your own stated bar it is a sideways move or the posting does not confirm it is an internship. Kept visible so the bar can be caught being wrong.", apply)}
 ${section("Worth a look", "Something could not be determined from the posting — kept rather than dropped, because missing a real opportunity costs more than a glance. The notes say what was unclear.", look)}
 ${section("Ruled out", "Shown rather than hidden, so the filter can be caught being wrong. If something here should have passed, the rule that rejected it is named.", out)}

@@ -75,11 +75,14 @@ export function intake(p) {
   return { season: String(t.intake_season || "").trim().toLowerCase(), year };
 }
 
-/** "Summer 2030", or whatever part of it the profile states. */
+/** "Summer 2030", or whatever part of it the profile states. The year is never printed twice. */
 export function intakeLabel(p) {
   const { season, year } = intake(p);
   const s = season ? season[0].toUpperCase() + season.slice(1) : "";
-  return [s, year].filter(Boolean).join(" ");
+  // A season answer can already hold the year ("summer 2027", "Season: summer · year: 2027"). The
+  // dashboard header once read "for Season: summer · year: 2027 2027".
+  const named = year && new RegExp(`\\b${year}\\b`).test(s);
+  return [s, named ? null : year].filter(Boolean).join(" ");
 }
 
 export function graduationYear(p) {

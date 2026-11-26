@@ -40,7 +40,7 @@ import path from "node:path";
 import { assess } from "./eligibility.mjs";
 import { rank } from "./bar.mjs";
 import { decisions, isDecided } from "./decisions.mjs";
-import { barConfig, boostKeywords, fromHeader, homeRegex, inRange, intake, isTechSector, loadExample, loadProfile, PROJECT_ROOT, SOURCES_EXAMPLE, SOURCES_GENERAL_EXAMPLE, sourcesFileFor, targetCountries, termsRegex, userAgent } from "./profile.mjs";
+import { barConfig, boostKeywords, fromHeader, homeRegex, inRange, intake, intakeLabel, isTechSector, loadExample, loadProfile, PROJECT_ROOT, SOURCES_EXAMPLE, SOURCES_GENERAL_EXAMPLE, sourcesFileFor, targetCountries, termsRegex, userAgent } from "./profile.mjs";
 
 const ROOT = process.cwd();
 const SOURCES = path.join(ROOT, "jobs", "sources.json");
@@ -1058,6 +1058,13 @@ async function selfTest() {
   t("every general tier1 row names a known ATS and a slug", tier1.every((r) => ADAPTERS[r.ats] && r.slug && r.company), JSON.stringify(tier1.filter((r) => !ADAPTERS[r.ats] || !r.slug)));
   t("no employer appears twice in the general list", new Set(tier1.map((r) => r.company)).size === tier1.length, "duplicate");
   const t2 = general.tier2_browser_required || [];
+  // THE DASHBOARD HEADER names the intake once. A setup answer that already held the year printed
+  // "for Season: summer · year: 2027 2027".
+  const doubled = withTarget({ timing: { ...ex.target.timing, intake_season: "Season: summer · year: 2027", intake_year: 2027 } });
+  const label = intakeLabel(doubled);
+  t(`header names the year once: "${label}"`, label.split("2027").length === 2, label);
+  t(`header for "summer 2027" + 2027 is "Summer 2027"`, intakeLabel(withTarget({ timing: { intake_season: "summer 2027", intake_year: 2027 } })) === "Summer 2027", intakeLabel(withTarget({ timing: { intake_season: "summer 2027", intake_year: 2027 } })));
+  t(`header for the example is unchanged: "${intakeLabel(ex)}"`, intakeLabel(ex) === `Summer ${ex.target.timing.intake_year}`, intakeLabel(ex));
   t(`every tier2 row has name, https url, a dated measurement and handling (${t2.length})`,
     t2.length > 0 && t2.every((r) => r.name && /^https:\/\//.test(r.url) && Object.keys(r).some((k) => /^measured_\d{4}_\d{2}_\d{2}$/.test(k)) && r.handling), "malformed");
 
