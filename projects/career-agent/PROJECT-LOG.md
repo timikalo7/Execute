@@ -695,3 +695,13 @@ separate evaluation had named the same risk ("media" kept "Data Analytics Intern
 new board. Live numbers depend on what employers post on the day.
 
 **Separate evaluation.** Not run yet.
+
+**Separate evaluation (fresh agent, spec + commits only).** `npm test` exit 0, 420 to 479 PASS, no
+PASS row removed, never-submit intact; tech discover output identical to origin/main live (57 rows,
+same URLs and fingerprint); a live marketing board went from 14 rows (8 of them CS, quant, cyber or
+apprenticeship) to 2, with none left; finance keeps audit, markets, investment banking and the
+apprenticeships insight event; law keeps "Legal Vacation Scheme 2027", HR keeps "HR Business Partner
+Intern". Hole it found, not fixed: a phrase term matches only with single spaces, so "Social-Media
+Intern" is dropped for a profile whose only social-media term is the phrase "social media".
+
+Evaluation (separate agent): PASS — tech output byte-identical on live runs, marketing board 14 to 2 with no CS/quant/cyber/apprentice rows, finance keeps its roles, and npm test is 479 PASS vs 420 with never-submit intact; the only hole is the hyphenated "Social-Media Intern" being dropped, which the log discloses.
