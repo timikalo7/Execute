@@ -128,6 +128,27 @@ export const mlhSeason = (d = new Date()) => d.getUTCFullYear() + (d.getUTCMonth
 const usAuthorised = (profile) => targetCountries(profile).some((c) => /^(us|u\.s\.|usa|united states)/i.test(String(c).trim()));
 
 /**
+ * The title rule for the J.P. Morgan source. Its search returns full-time roles next to the student
+ * ones, and its rows travel as opportunities, so the INTERN_RE filter in main() never sees them.
+ *
+ * Kept: a student role. That is an INTERN_RE word, or graduate / apprentice / early careers /
+ * undergraduate / industrial placement, or a student-programme word such as "summer"; and never a
+ * title that EXCLUDE_RE rules out. Dropped: any senior title (Associate, Vice President, Director,
+ * banker, ...) unless the same title also names a student programme. So "Summer Associate" is kept
+ * and "Product Controller Associate" is dropped. Pure, so the self-test drives it directly.
+ */
+const STUDENT_RE = /\b(graduate|apprentice|apprenticeship|early careers?|undergraduate|industrial placement)\b/i;
+const SENIOR_RE = /\b(vice president|executive director|managing director|associate|director|head of|lead|senior|principal|banker)\b/i;
+const STUDENT_PROGRAMME_RE = /\b(intern|internship|summer|placement|graduate|apprentice|spring week|insight)\b/i;
+export const jpmStudentRole = (title) => {
+  const t = String(title || "");
+  if (EXCLUDE_RE.test(t)) return false;
+  const programme = STUDENT_PROGRAMME_RE.test(t);
+  if (SENIOR_RE.test(t) && !programme) return false;
+  return programme || INTERN_RE.test(t) || STUDENT_RE.test(t);
+};
+
+/**
  * OPPORTUNITIES — the half worth most: the things you would never have found.
  * Job boards only surface what you already knew to look for. Hackathons, events, talks and
  * programmes are where the "I only heard about this because someone forwarded it" opportunities
@@ -192,8 +213,11 @@ export const OPPORTUNITY_SOURCES = [
     // JPMC is one of the largest UK graduate tech employers and was completely absent from the board.
     //
     // The keyword search is fuzzy (asking for "intern" returns Executive Director roles), so the
-    // queries are only there to keep the payload small; the real filtering is the UK location check
-    // here plus the existing title rules downstream.
+    // queries are only there to keep the payload small. The real filtering is done HERE: the
+    // profile's location check, then jpmStudentRole() on the title. There is no title rule
+    // downstream for these rows: they travel as opportunities, and only job-board rows go through
+    // the INTERN_RE filter in main(). Without this filter, full-time Associate, Vice President and
+    // banker roles reached the board and were given tailored CVs.
     name: "J.P. Morgan",
     kind: "job",
     url: null, // fetched per keyword below
@@ -211,6 +235,7 @@ export const OPPORTUNITY_SOURCES = [
       }
       return [...byId.values()]
         .filter((q) => inRange(q.PrimaryLocation || "", profile))
+        .filter((q) => jpmStudentRole(q.Title))
         .map((q) => ({
           source: "jpmorgan",
           kind: "job",
@@ -704,7 +729,7 @@ async function main() {
  * applications eleven days earlier. A parser that only passes the good case would put that event on
  * the board, and you would find out by opening a closed form.
  */
-function selfTest() {
+async function selfTest() {
   const junction = OPPORTUNITY_SOURCES.find((s) => s.name === "Junction");
   const day = 86400000;
   const iso = (offset) => new Date(Date.now() + offset).toISOString();
@@ -785,6 +810,40 @@ function selfTest() {
   t("Simplify drops US-citizenship rows for a profile without the US", !kept.includes("B"), JSON.stringify(kept));
   t("Simplify's list URL is built from the profile's intake year", simplify.url(ex).includes(`Summer${ex.target.timing.intake_year}-`), simplify.url(ex));
 
+  // J.P. Morgan: student roles only. Its rows are opportunities, so no downstream title rule sees
+  // them; the rule lives in the source. Both ways: each KEPT title must pass, each DROPPED must not.
+  const JPM_KEPT = [
+    "2027 Summer Analyst Program",
+    "Software Engineer Program - Graduate",
+    "Spring Week 2026",
+    "Industrial Placement - Technology",
+    "Corporate & Investment Bank Summer Associate",
+    "Insight Programme",
+  ];
+  const JPM_DROPPED = [
+    "Product Controller Associate",
+    "International Private Bank - Investment Specialist Vice President",
+    "Asset Management - Internal Client Advisor - Associate",
+    "Investment Banking - DACH ECM Analyst - London",
+    "Executive Director, Software Engineering",
+    "Private Banker - Saudi",
+  ];
+  for (const title of JPM_KEPT) t(`J.P. Morgan keeps "${title}"`, jpmStudentRole(title) === true, "dropped");
+  for (const title of JPM_DROPPED) t(`J.P. Morgan drops "${title}"`, jpmStudentRole(title) === false, "kept");
+  // ...and the source really applies the rule: its fetchAll runs on a stubbed API answer that holds
+  // every title above, in a city the profile accepts. A rule that exists but is not wired in fails here.
+  const jpm = OPPORTUNITY_SOURCES.find((x) => x.name === "J.P. Morgan");
+  const requisitionList = [...JPM_KEPT, ...JPM_DROPPED].map((Title, i) => ({ Id: `t${i}`, Title, PrimaryLocation: `${home}, United Kingdom` }));
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ items: [{ requisitionList }] }) });
+  let jpmTitles;
+  try {
+    jpmTitles = (await jpm.fetchAll("career-agent self-test", ex)).map((r) => r.title);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+  t("J.P. Morgan source returns only the student roles", [...jpmTitles].sort().join("|") === [...JPM_KEPT].sort().join("|"), JSON.stringify(jpmTitles));
+
   console.log(bad ? `\nself-test FAILED (${bad})` : "\nself-test passed — Junction parser accepts open events and rejects closed ones; scoring and filtering follow the profile");
   process.exit(bad ? 1 : 0);
 }
@@ -793,7 +852,10 @@ function selfTest() {
 // as a side effect — the same bug that has now bitten this project three times in other scripts.
 const invoked = process.argv[1] && process.argv[1].endsWith("discover.mjs");
 if (invoked && args.includes("--self-test")) {
-  selfTest();
+  selfTest().catch((e) => {
+    console.error("self-test FAILED: " + e.message);
+    process.exit(1);
+  });
 } else if (invoked) {
   main().catch((e) => {
     console.error("discover: " + e.message);
