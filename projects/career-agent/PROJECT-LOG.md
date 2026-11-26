@@ -250,3 +250,11 @@ Every other child-process call in the scripts already builds its path with `path
 **Proven here (Linux).** `npm test` exit 0, 240 PASS. `new URL("file:///C:/Users/x.mjs").pathname`
 gives `/C:/Users/x.mjs`; `fileURLToPath(…, { windows: true })` gives `C:\Users\x.mjs`.
 **Not checked here.** The rest of `npm test` on Windows: only the owner's re-run proves it.
+
+**Separate evaluation (fresh agent, spec + commit only).** The diff is the two spawn arguments, one
+`fileURLToPath` import each, and this entry; `npm test` exit 0 with 240 PASS from a fresh clone; the
+Windows conversion checked in simulation; no other child process in scripts/ uses a Windows-unsafe
+path, and no shell strings, npm/npx spawns, hard-coded /tmp or HOME. Not proven: a real Windows run
+past these two suites.
+
+Evaluation (separate agent): PASS — the diff touches only the two spawn arguments plus the import, `npm test` is exit 0 with 240 PASS on Linux, the Windows path conversion works in simulation, and no other Windows-unsafe child-process path exists, with a real Windows run still unproven.
