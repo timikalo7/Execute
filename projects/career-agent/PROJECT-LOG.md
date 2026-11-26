@@ -258,3 +258,78 @@ path, and no shell strings, npm/npx spawns, hard-coded /tmp or HOME. Not proven:
 past these two suites.
 
 Evaluation (separate agent): PASS — the diff touches only the two spawn arguments plus the import, `npm test` is exit 0 with 240 PASS on Linux, the Windows path conversion works in simulation, and no other Windows-unsafe child-process path exists, with a real Windows run still unproven.
+
+## 2026-11-26 — Discovery follows the attendee's field, not only tech
+
+**Why.** The owner ran the workshop flow as a finance student (sector Finance; roles in investment
+banking, audit and finance; Edinburgh and London; summer 2027) and the dashboard showed CS roles only:
+"its still showing cs stuff". Causes: `TECH_RE` was hard-coded into the job-board filter, so "Audit
+Intern" and "Summer Analyst - Markets" were dropped; `config/sources.example.json` lists only tech
+employers; and the Simplify and J.P. Morgan job lists reached the board with no field rule at all
+(483 Simplify rows on the day, mostly CS). The header also read "Season: summer · year: 2027 2027":
+the season answer already held the year and `intakeLabel` appended it again. Scope widened by the
+owner mid-ticket: it must work for any field, not only finance.
+
+**What changed.**
+- `scripts/discover.mjs`: exported pure `fieldWords`, `fieldWordsRe`, `excludeRe`, `matchJobs` and
+  `fieldOpportunities`. Field words are `target.title_keywords` when present; else `TECH_RE`, the
+  same regex object, for a missing or tech sector; else the words of `target.roles` plus
+  `target.boost_keywords`, minus words of three letters or fewer and minus generic words (intern,
+  placement, summer, analyst, ...). An `EXCLUDE_RE` term that names the profile's own field (sales,
+  marketing, hr / human resources, recruiter, internal, international) is skipped for that profile
+  only; "internship program manager" never is. For a non-tech profile, discovered opportunities
+  (job lists, hackathons, events) must name the field too; hand-added `jobs/manual.json` rows always
+  stay. discover prints the field words it used. The summary line says "internship in your field".
+- `scripts/profile.mjs`: `isTechSector`, `sourcesFileFor` (`jobs/sources.json`, else
+  `config/sources.example.json` for tech, else `config/sources.general.example.json`), and
+  `intakeLabel` no longer prints the year twice.
+- `config/sources.general.example.json`: 20 boards across trading and fintech, consulting, retail,
+  marketing and media, energy and engineering, and a charity, each verified live today; 16 large
+  employers that cannot be fetched (Workday, Phenom, 403 to automated requests) in
+  `tier2_browser_required`, each with what was measured.
+- `scripts/dashboard.mjs`: "Check these yourself" reads the sources file discover used, so a non-tech
+  profile sees the tier2 list; the upgrade note no longer says "for a technical career".
+- README: a short "Not studying computer science?" section.
+
+**Decisions (where the ticket's text was not followed literally).**
+- The tech-sector test uses `\bIT\b`, not `IT\b`: with the literal form, "Audit" (aud-IT) and
+  "Credit" read as IT and those students got `TECH_RE`. A self-test row and a mutant cover it.
+- A two- or three-letter word the profile writes in capitals is an acronym and is kept (HR, PR, UX).
+  Otherwise "HR intern" gives no field word. Numbers are never field words.
+- Roles that give no field word at all (e.g. "Law intern") keep every internship and discover says to
+  add `target.title_keywords`, rather than show an empty board.
+- "vacation scheme" counts as an internship title for a non-tech profile (law firms use it).
+  `INTERN_RE` is unchanged for tech.
+
+**Proven.**
+- `npm test` exits 0: 240 PASS lines before, 298 after (+58). The never-submit self-test still passes.
+- Tech unchanged: the example profile, run on origin/main and on this branch back to back, wrote the
+  same 8 job-board URLs and the same 57 rows (URL, title, score, verdict and tier all equal); stdout
+  was byte-identical (6521 bytes). Only the summary wording differs.
+- Finance persona, fresh clone: origin/main used `sources.example.json` and wrote 536 rows, 286 of
+  the 492 job rows with a CS word in the title. This branch used `sources.general.example.json`;
+  518 opportunity rows outside the field were dropped; 10 rows kept (Global Markets, Investment
+  Banking, Quantitative Finance, Finance Engineer and Quantitative Investment Research internships,
+  two Morgan Stanley finance insight events); tailor wrote 8 folders, 2 skipped as ineligible.
+- Marketing persona (Marketing intern, Brand placement, Social media intern; London): 6 rows kept,
+  tailor wrote 3 folders. No pure software or CS title among them; one mixes data science and
+  marketing ("Data Science & Marketing Effectiveness Intern").
+- Header: origin/main "for Season: summer · year: 2027 2027."; this branch "… year: 2027.".
+- `node scripts/probe-sources.mjs --verify` on the general list: all 20 live.
+- The rows can fail: 16 of 16 mutants in a scratch copy outside the repository turned the
+  discover self-test red (rule reverted to `TECH_RE`, exclusions ignored, main() unwired, opportunity
+  filter removed or dropping manual rows, sources choice broken, `intakeLabel` as on origin/main,
+  literal `IT\b`, no acronym exception, generic words kept, no vacation scheme, vacation scheme for
+  tech, `title_keywords` ignored, an unknown ATS in the general list).
+
+**Known limits (not fixed here).**
+- The marketing board is thin (6 rows, below the 10 asked for): the four public ATS APIs hold few UK
+  non-tech student roles today. Most sit on Workday or own portals, listed in tier2. Two of the six
+  are not internships in fact: `INTERN_RE` matches a bare "insight" ("Lead Insight Analyst - Marketing
+  & Acquisition"), and "media" matches "Data Analytics Intern - Media Handling".
+- The SmartRecruiters adapter reads the first 100 postings only (Wise has 415, Bosch 5167).
+- `profile-check.mjs` still says `target.roles` and `target.sector` are only context; discover now
+  reads them. The J.P. Morgan source's own `EXCLUDE_RE` is not field-aware.
+
+**Not checked.** Windows and macOS. Live numbers depend on what employers post on the day. A
+separate-agent evaluation of this change has not been run yet.

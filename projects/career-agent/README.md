@@ -112,6 +112,15 @@ To choose which employers' boards are searched, copy `config/sources.example.jso
 `jobs/sources.json` and edit it; `node scripts/probe-sources.mjs "Company Name"` finds a company's
 board for you.
 
+## Not studying computer science?
+
+Set `target.sector` (e.g. `Marketing`) and `target.roles` (e.g. `Marketing intern`, `Brand placement`) in
+your profile. A non-tech sector then starts from `config/sources.general.example.json` (many sectors) and
+keeps only postings whose title names a word from your roles; words of three letters or fewer, like "law",
+are skipped. If titles in your field use other words, add `target.title_keywords`, e.g. `["law", "legal"]`;
+only those words are then used. Add employers in your field to `jobs/sources.json` with
+`node scripts/probe-sources.mjs "Company"`.
+
 ## What is deliberately not automated
 
 - **Submitting.** `apply.mjs` has no code path that presses submit. Boards prohibit programmatic
