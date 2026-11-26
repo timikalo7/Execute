@@ -85,6 +85,13 @@ const EXCLUDE_TERMS = [
 const GENERIC_WORDS = new Set(
   "intern internship placement summer graduate programme program scheme analyst associate year role roles and the for with in of".split(" "),
 );
+// Broad words that name no field on their own. With "digital marketing" as a boost keyword, a bare
+// "digital" put quant, cyber and software-apprenticeship titles on a marketing student's board.
+// A weak word never counts by itself; a role or boost keyword made ONLY of weak words counts as one
+// phrase ("Social media intern" gives "social media"). target.title_keywords is never filtered.
+const WEAK_WORDS = new Set(
+  "digital media social global business data technology tech solutions operations analytics research strategy management product products assets innovation services customer insights".split(" "),
+);
 
 /**
  * The words a job-board title must contain to count as the attendee's field. Pure.
@@ -94,6 +101,8 @@ const GENERIC_WORDS = new Set(
  *   3. Else the words of target.roles plus target.boost_keywords, lower-cased, without words of three
  *      letters or fewer and without GENERIC_WORDS. One exception to the length rule: a short word the
  *      profile writes in capitals is an acronym (HR, PR, UX), so it is kept. Numbers are not words.
+ *      Per role or keyword, WEAK_WORDS are left out when another word is left ("digital marketing"
+ *      gives "marketing"); when only weak words are left, they count as one phrase ("social media").
  */
 export function fieldWords(profile) {
   const t = profile?.target || {};
@@ -101,14 +110,20 @@ export function fieldWords(profile) {
   if (own.length) return { from: "title_keywords", words: [...new Set(own.map((k) => k.toLowerCase()))] };
   if (isTechSector(profile)) return { from: "tech", words: null };
   const words = [];
-  for (const phrase of [].concat(t.roles || [], t.boost_keywords || []))
+  const add = (w) => words.includes(w) || words.push(w);
+  for (const phrase of [].concat(t.roles || [], t.boost_keywords || [])) {
+    const left = [];
     for (const w of String(phrase).split(/[^\p{L}\p{N}]+/u)) {
       const lw = w.toLowerCase();
       if (!/\p{L}/u.test(w) || GENERIC_WORDS.has(lw)) continue;
       const acronym = w.length >= 2 && w === w.toUpperCase();
       if (lw.length <= 3 && !acronym) continue;
-      if (!words.includes(lw)) words.push(lw);
+      left.push(lw);
     }
+    const strong = left.filter((w) => !WEAK_WORDS.has(w));
+    if (strong.length) strong.forEach(add);
+    else if (left.length) add(left.join(" "));
+  }
   return { from: "roles", words };
 }
 
@@ -1108,6 +1123,30 @@ async function selfTest() {
   t("marketing opportunities: only the hand-added row is left", fieldOpportunities(OPPS, marketing).map((o) => o.source).join() === "manual", JSON.stringify(fieldOpportunities(OPPS, marketing)));
   t("a tech profile's opportunities are the very same array", fieldOpportunities(OPPS, ex) === OPPS, "filtered");
   t("main() filters opportunities with fieldOpportunities", /fieldOpportunities\(opp\.rows, profile\)/.test(mainSrc), "not wired");
+
+  // WEAK WORDS. A marketing student (roles "Marketing intern", "Social media intern", "Brand
+  // placement"; boost "digital marketing") was shown quant, cyber and software-apprenticeship roles,
+  // each through the bare word "digital". A weak word never counts alone, a role or keyword made only
+  // of weak words is one phrase, and target.title_keywords stay exactly as the user wrote them.
+  const maya = withTarget({
+    sector: "Marketing",
+    roles: ["Marketing intern", "Social media intern", "Brand placement"],
+    boost_keywords: ["digital marketing", "social media", "Canva"],
+    locations: ["London"],
+  });
+  const wordsOf = (over) => fieldWords(withTarget({ sector: "Marketing", boost_keywords: [], ...over })).words.join(",");
+  t("marketing field words are marketing, social media, brand, canva", fieldWords(maya).words.join(",") === "marketing,social media,brand,canva", fieldWords(maya).words.join(","));
+  t(`boost "digital marketing" gives "marketing" only`, wordsOf({ roles: ["Marketing intern"], boost_keywords: ["digital marketing"] }) === "marketing", wordsOf({ roles: ["Marketing intern"], boost_keywords: ["digital marketing"] }));
+  t(`role "Social media intern" gives the one phrase "social media"`, wordsOf({ roles: ["Social media intern"] }) === "social media", wordsOf({ roles: ["Social media intern"] }));
+  t(`sales field words are sales, development ("business" is weak)`, fieldWords(sales).words.join(",") === "sales,development", fieldWords(sales).words.join(","));
+  const weakList = [...WEAK_WORDS];
+  const weakLeak = weakList.filter((w) => wordsOf({ roles: [`${w} marketing intern`] }) !== "marketing");
+  t(`all ${weakList.length} weak words are dropped next to "marketing"`, weakList.length === 21 && weakLeak.length === 0, JSON.stringify(weakLeak));
+  t(`title_keywords keep weak words as written ("Digital", "media")`, wordsOf({ title_keywords: ["Digital", "media"] }) === "digital,media", wordsOf({ title_keywords: ["Digital", "media"] }));
+  const mayaRe = fieldWordsRe(maya);
+  t(`marketing: the phrase matches "Social Media Intern"`, mayaRe.test("Social Media Intern"), String(mayaRe));
+  for (const title of ["Media Product Intern", "Data and Analytics Intern - Customer and Digital", "Data Analytics Intern - Media Handling", "Digital Apprentice - Software Development"])
+    t(`marketing: no weak word alone matches "${title}"`, !mayaRe.test(title), String(mayaRe));
 
   // WHICH EMPLOYER LIST: jobs/sources.json when it exists, else the shipped example for the sector.
   const none = { root: path.join(PROJECT_ROOT, "no-such-dir"), exists: () => false };
