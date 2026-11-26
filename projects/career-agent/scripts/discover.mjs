@@ -61,7 +61,9 @@ const ONLY_NEW = args.includes("--new");
 // An "internship" here means a summer/industrial placement for a student, in YOUR field, somewhere
 // your profile says you can work. Each rule is separate so a miss can be diagnosed rather than
 // guessed at. The field comes from the profile (fieldWords below); TECH_RE is the default.
-const INTERN_RE = /\b(intern|internship|placement|industrial year|summer analyst|work experience|insight|spring week|graduate scheme)\b/i;
+// "insight" counts only as a student programme: "Insight Week", "Insight Programme", "Spring Insight".
+// A bare "insight" kept full-time roles such as "Lead Insight Analyst" on a marketing student's board.
+const INTERN_RE = /\b(intern|internship|placement|industrial year|summer analyst|work experience|insight\s+(?:days?|weeks?|programme|program|event|evening|series|scheme)|spring\s+insight|spring week|graduate scheme)\b/i;
 // TECH_RE lives in profile.mjs: isTechSector reads it too (an empty sector with only non-tech roles).
 // Excludes things that match "intern" but are not internships.
 const EXCLUDE_RE = /\b(internal|international(?! )|internship program manager|recruiter|sales|marketing intern|hr intern)\b/i;
@@ -1056,6 +1058,16 @@ async function selfTest() {
   t(`law keeps "Legal Vacation Scheme 2027"`, keeps(law, "Legal Vacation Scheme 2027"), "dropped");
   t(`law drops "Software Engineer Intern"`, !keeps(law, "Software Engineer Intern"), "kept");
   t(`tech example drops "Technology Vacation Scheme" (INTERN_RE unchanged)`, !keeps(ex, "Technology Vacation Scheme"), "kept");
+
+  // "insight" only as a student programme. A bare "insight" put full-time "Lead Insight Analyst -
+  // Marketing & Acquisition" on a marketing student's board. Both ways, on the regex and on the board.
+  for (const title of ["Lead Insight Analyst - Marketing & Acquisition", "Consumer Insight Manager", "Insight Analyst"])
+    t(`INTERN_RE drops full-time "${title}"`, !INTERN_RE.test(title), "matched");
+  t(`marketing drops "Lead Insight Analyst - Marketing & Acquisition"`, !keeps(marketing, "Lead Insight Analyst - Marketing & Acquisition"), "kept");
+  for (const title of ["Spring Insight Week", "Insight Programme", "Insight Day - Marketing", "2027 Spring Insight: Careers Across Finance, Risk & Business", "Technology Insight Weeks", "Insight Evening", "Insight Series 2027"])
+    t(`INTERN_RE keeps student programme "${title}"`, INTERN_RE.test(title), "not matched");
+  t(`marketing keeps "Marketing Spring Insight Week"`, keeps(marketing, "Marketing Spring Insight Week"), "dropped");
+  t(`tech example keeps "Technology Insight Programme"`, keeps(ex, "Technology Insight Programme"), "dropped");
 
   // An exclusion that names the profile's own field is skipped for that profile, and only for it.
   t(`marketing: "marketing intern" is not excluded`, !excludeRe(marketing).test("Marketing Intern"), String(excludeRe(marketing)));
