@@ -344,3 +344,129 @@ because only the profile's own role words count) and the general list has no law
 design employers; "Lead Insight Analyst" and finance-titled engineering roles can still be kept.
 
 Evaluation (separate agent): PASS — tech discover output, URL lists and stdout are identical to origin/main, npm test passes (240 to 298 PASS) with never-submit intact, non-tech profiles get their own field words, the multi-sector list and no CS roles, with only minor false keeps and a thin law board (documented limits).
+
+## 2026-11-26 — Job APIs (Adzuna, Reed, opt-in Apify), an empty sector, and a stale board
+
+**Why.** Two faults from the owner's finance role-play, both found by reading the code: (a) the
+persona left `target.sector` empty, and `isTechSector` read empty as tech, so `TECH_RE` filtered the
+board; (b) discover merges into `jobs/found.json`, so CS rows from an earlier example-profile run
+stayed on the board. And the curated boards are thin: the last live run fetched 2107 postings and
+finance kept 10, law 0. The owner's decision: Adzuna and Reed (official APIs, free keys) by default
+when their keys are set; Apify's LinkedIn/Indeed scrapers only with `APIFY_TOKEN`, with a
+terms-of-use warning; everything works with no keys.
+
+**What changed.**
+- `scripts/profile.mjs`: `TECH_RE` moved here (exported; discover imports the same object).
+  `isTechSector`: an empty sector is non-tech when `target.roles` exist and none matches `TECH_RE`;
+  otherwise the tech default as before.
+- `scripts/discover.mjs`: `fieldFingerprint` (tech or not, plus the field-words regex source) is
+  written to `found.json` as `field_fingerprint`; `boardForField` drops the stored rows when it
+  differs and discover prints `your field changed since the last run — previous board cleared`.
+  The job-API rows are added to the job-board rows before `matchJobs`, so the same INTERN_RE, field
+  words, exclusions and location chain applies, then eligibility.
+- New `scripts/sources-api.mjs`: Adzuna, Reed, Apify LinkedIn, Apify Indeed. Queries are
+  `target.roles` × `target.locations`, capped at 10 per source per run, count printed. One request at
+  a time, 300 ms apart, no retries; an owned-timer timeout on every request (25 s; Apify 150 s).
+  With no key: one "not configured" line, no network call, not a failure. A refused key (401/403;
+  Adzuna also 410) prints `<Source>: key rejected (HTTP n)` and is a FAILED source. Keys come from
+  `process.env` only; every error message and every row is scrubbed of each key and its Basic-auth
+  form; a URL is only printed through `redactUrl`, which drops the query string.
+- README "More jobs (optional free keys)" (PowerShell and macOS/Linux forms; Apify's scrapers break
+  LinkedIn's and Indeed's terms, so each person decides), the LinkedIn and Privacy bullets, the keys
+  table; `.env.example` rows with sign-up links.
+
+**API facts and where they came from (all fetched 2026-11-26).**
+- Adzuna: <https://developer.adzuna.com/overview> (root `https://api.adzuna.com/v1/api`, `app_id` and
+  `app_key` query parameters, sign-up at <https://developer.adzuna.com/signup>),
+  <https://developer.adzuna.com/docs/search> (the `/jobs/gb/search/1` example, `what`, `where`,
+  `results_per_page`, `content-type`), and the OpenAPI file behind
+  <https://developer.adzuna.com/activedocs> (`/swagger/spec/test2.json`: every parameter, the Job
+  fields `title`, `description` "truncated to 500 characters", `created`, `redirect_url`,
+  `location.display_name`/`area`, `company.display_name`, and 410 "Authorisation failed"). Rate
+  limit: none published; "The plans available to you, and their limits, are shown in your account"
+  (<https://developer.adzuna.com/docs/terms_of_service>, which permits personal job search).
+  Measured: a made-up key gets HTTP 401 `AUTH_FAIL`.
+- Reed: <https://www.reed.co.uk/developers/jobseeker> (search URL
+  `https://www.reed.co.uk/api/{versionnumber}/search`, `keywords`, `locationName`, `resultsToTake`
+  "defaults and is limited to 100", the key as the Basic-auth username with an empty password, the
+  Details URL `/api/1.0/jobs/{Job Id}`). No rate limit published. Measured: a made-up key and no key
+  both get HTTP 401.
+- Apify: <https://docs.apify.com/api/v2/act-run-sync-get-dataset-items-post> (`POST
+  /v2/actors/:actorId/run-sync-get-dataset-items`, `username~actor-name`, the body is the input,
+  `timeout`, `maxItems`, 408 past 300 s, 402 payment required), <https://docs.apify.com/api/v2>
+  (`Authorization: Bearer <token>` recommended over the `token` query parameter; 429 on rate limit),
+  <https://docs.apify.com/platform/integrations/api> (the token page),
+  <https://docs.apify.com/api/v2/store-get> (`/v2/store?search=…&includeInputSchema=true`) and
+  <https://docs.apify.com/api/v2/act-build-default-get> (the default build's input schema and
+  readme). Chosen from the live store: `valig~linkedin-jobs-scraper` (9,867 users in 30 days, rating
+  4.6 from 28, build 2026-11-18; input `keywords`, `location`, `limit`) and `valig~indeed-jobs-scraper`
+  (6,471 users, 4.7 from 18, build 2026-11-18; input `country`, `title`, `location`, `limit`). The
+  output fields read are the ones in each actor's README example. Measured: a made-up token gets
+  HTTP 401 `user-or-token-not-found`.
+
+**Decisions (where the ticket's text was not followed literally).**
+- Reed's page lists result fields by display name only and shows no JSON, no wrapper name and no
+  link field in search results. The parser reads those names in the page's own camelCase
+  (`jobId`, `employerName`, `jobTitle`, `locationName`, `jobDescription`/`description`), takes the
+  array whose items carry a job id or title, and uses the reed.co.uk link the answer carries; a row
+  without one is looked up through Details only if `matchJobs` would keep it (at most 10). Reed rows
+  have no posted date (none is documented for search).
+- Adzuna treats 410 as a refused key too: its own spec names 410 "Authorisation failed".
+- The actors' documented result-count input is `limit`, set to 25; the API's `maxItems=25` is sent
+  as well. The Apify run timeout is 120 s. Indeed searches the UK (`country: "uk"`), like the other
+  two. One "not configured" line and one warning line cover both Apify actors.
+- A `found.json` with no fingerprint counts as the tech default, so a tech board keeps today's
+  merge and any other field is cleared once.
+- An API that names no employer gives `company: ""`; nothing is invented.
+- The "every source failed" exit counts the employer boards as before; a failed API is listed with
+  the other failures but does not change that rule.
+
+**Proven.**
+- `npm test` exits 0: 298 PASS before, 378 after (+80: discover 87 to 167). The never-submit rows
+  still pass ("form was NOT submitted", "NOTHING WAS SUBMITTED", "the form did NOT fire submit").
+- No keys, example profile, origin/main and this branch back to back in scratch clones: the same 8
+  job-board URLs and the same 57 rows (URL, title, score, verdict, tier); stdout byte-identical
+  (6461 bytes). stderr differs only by the three "not configured" lines and the clone path.
+- No keys, finance persona with an EMPTY sector (Investment banking summer analyst, Audit intern,
+  Finance placement; Edinburgh, London; 2027), in the clone holding the example board: discover used
+  `sources.general.example.json`, printed `your field changed since the last run — previous board
+  cleared (57 row(s) removed from jobs/found.json)`, and wrote 10 rows, every one with a finance field
+  word in its title; none of the example board's Software Engineer or Machine Learning rows is left.
+  The same run on origin/main used `sources.example.json` and wrote 535 rows, 124 with "software".
+- Request shapes, from the stubbed fetch (keys redacted): Adzuna `GET
+  https://api.adzuna.com/v1/api/jobs/gb/search/1?[query redacted]`, auth header no (keys in the
+  query); Reed `GET https://www.reed.co.uk/api/1.0/search?[query redacted]`, auth header yes (Basic);
+  Apify `POST https://api.apify.com/v2/actors/valig~linkedin-jobs-scraper/run-sync-get-dataset-items`
+  and `…/valig~indeed-jobs-scraper/…`, auth header yes (Bearer), token never in the URL.
+- The rows can fail: 33 of 33 mutants in a scratch copy outside the repository turned the discover
+  self-test red (fix (a) reverted, roles ignored, board always kept, fingerprint without the field
+  words, merge into the stored board, fingerprint not written, no-key check removed, env names
+  dropped from the line, refused key unrecognised or not stopping, scrub off, Basic-auth form not a
+  secret, query kept in printed URLs, a timer that never fires, no query cap, wrong Adzuna/Reed/Indeed
+  fields, `where` not sent, 100 per page, no dedupe, Reed key as the password, lookups ignoring the
+  filter or taking any id, `_id` leaking, Apify token in the URL, no warning, 100 per query, actor
+  override not validated, US Indeed, API rows bypassing `matchJobs`, API failures not listed, no
+  lookup filter). Two survived the first round and found real test gaps: a timer that never fires
+  let Node exit 0 halfway through the self-test, and no row put a Basic-auth header into an error.
+  An exit guard now fails an unfinished self-test, and a row covers the header.
+- security-gate and system-design-gate pass on `projects/career-agent` (run with `--dir`).
+
+**Not checked.**
+- No live call with a real key: no Adzuna, Reed or Apify key exists here. Request shapes and parsing
+  are proven only against stubs built from the documentation. Reed's JSON key names and link field
+  are read from display names, not from a live answer: the first real Reed run should be watched.
+- Adzuna's `what` with a multi-word role (all words, or any) is not documented; not measured.
+- Apify cost and run time per query; the actors are third-party and can change without notice.
+- Windows and macOS.
+
+**Known limits.**
+- An empty sector with one role that holds a `TECH_RE` word ("Equity research intern": "research")
+  stays tech.
+- The job APIs search the UK only (Adzuna's `gb` endpoint, Reed, Indeed `uk`).
+- `CLAUDE.md` in this folder still says "No LinkedIn automation of any kind"; the opt-in Apify source
+  conflicts with that line, which this change did not edit.
+- The ticket's `scan.mjs projects/career-agent` form passes the path as a positional argument, which
+  the scanner ignores: it scans the repository root and writes a warning-budget baseline. `--dir`
+  scans the project.
+
+**Separate evaluation.** Not run yet.

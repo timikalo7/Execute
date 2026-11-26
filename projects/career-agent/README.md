@@ -121,13 +121,72 @@ are skipped. If titles in your field use other words, add `target.title_keywords
 only those words are then used. Add employers in your field to `jobs/sources.json` with
 `node scripts/probe-sources.mjs "Company"`.
 
+If you leave `target.sector` empty, your roles decide: when none of them names a tech word (software,
+engineer, data, ...), you get your own field, not the tech default. When your field changes, the
+next `npm run discover` clears the old board once and says
+`your field changed since the last run — previous board cleared`, so no rows from the old field stay.
+
+## More jobs (optional free keys)
+
+The employer list covers a few dozen companies. Two free, official job-search APIs search the whole
+UK job market for your `target.roles` in your `target.locations`. Their postings then go through the
+same filters as everything else, so you still see only internships in your field, where you can work.
+
+| Source | Set | Free key |
+|---|---|---|
+| Adzuna | `ADZUNA_APP_ID` and `ADZUNA_APP_KEY` | <https://developer.adzuna.com/signup> |
+| Reed | `REED_API_KEY` | <https://www.reed.co.uk/developers/jobseeker> ("Sign up for a reed.co.uk API key") |
+
+Set the keys in the terminal you run discover from. They last until you close that window.
+
+**Windows (PowerShell):**
+
+```
+$env:ADZUNA_APP_ID="paste-your-app-id"
+$env:ADZUNA_APP_KEY="paste-your-app-key"
+$env:REED_API_KEY="paste-your-reed-key"
+npm run discover
+```
+
+**macOS / Linux:**
+
+```
+export ADZUNA_APP_ID="paste-your-app-id"
+export ADZUNA_APP_KEY="paste-your-app-key"
+export REED_API_KEY="paste-your-reed-key"
+npm run discover
+```
+
+- With no keys, discover prints one line per source, for example
+  `Adzuna: not configured — set ADZUNA_APP_ID and ADZUNA_APP_KEY (free key: developer.adzuna.com/signup)`,
+  and works as before. You need neither key for the workshop.
+- A key the service refuses shows as `Adzuna: key rejected (HTTP 401)` in the list of failed
+  sources. Check you copied the whole key.
+- Each source makes at most 10 searches a run: every role in every location, cut at 10. discover
+  prints how many it made.
+- Keys are read from the environment only. The tool never prints them or writes them to a file.
+  Do not put a key in a file you commit.
+
+**LinkedIn and Indeed through Apify — your decision.** If you also set `APIFY_TOKEN` (your token is
+at <https://console.apify.com/settings/integrations>), discover runs two third-party scrapers on your
+Apify account: one for LinkedIn jobs and one for Indeed jobs. **LinkedIn's and Indeed's terms of use
+forbid scraping their sites, and these scrapers break those terms.** So each person decides whether
+to use them. They are off unless you set the token, and discover prints a one-line warning each time
+they run. Each run uses your Apify credit and can take a minute or more. To use other actors, set
+`CAREER_AGENT_APIFY_LINKEDIN_ACTOR` or `CAREER_AGENT_APIFY_INDEED_ACTOR` to `username~actor-name`;
+they must take the same input and give the same fields as the defaults
+(`valig~linkedin-jobs-scraper`, `valig~indeed-jobs-scraper`).
+
 ## What is deliberately not automated
 
 - **Submitting.** `apply.mjs` has no code path that presses submit. Boards prohibit programmatic
   submission, tracking systems detect template spray, and an application cannot be unsubmitted. The
   tool prepares; you send.
-- **LinkedIn.** No scraping, no auto-connecting, no Easy Apply bots. LinkedIn's terms prohibit
-  automated access, and the penalty is a restricted account in the middle of a job search.
+- **LinkedIn.** No auto-connecting, no Easy Apply bots, and the tool never signs in to LinkedIn.
+  LinkedIn's terms prohibit automated access, and the penalty is a restricted account in the middle
+  of a job search. The tool does not scrape LinkedIn itself. The only route to LinkedIn job listings
+  is the opt-in Apify source in "More jobs", which breaks those terms and so runs only if you set
+  `APIFY_TOKEN`.
 - **Inventing anything.** See the honesty rule.
 
 ## Privacy
@@ -139,7 +198,9 @@ only those words are then used. Add employers in your field to `jobs/sources.jso
   publicly and add a GitHub Action that runs the daily loop and commits its output, your CV,
   address and phone number go onto the public internet. Run the loop locally instead.
 - Nothing is sent anywhere except the requests to public job-board APIs (no personal data in them)
-  and, when you run `apply`, the form you fill in your own browser.
+  and, when you run `apply`, the form you fill in your own browser. If you set the optional
+  job-search keys, your target roles and locations (search words such as "Audit intern" and
+  "London") go to Adzuna, Reed or Apify as the search. Nothing else from your profile is sent.
 - Date of birth, National Insurance and passport numbers are never stored. Type them on the day.
 - By default the job-board requests identify themselves as `career-agent (personal job search)`. Set
   `CAREER_AGENT_CONTACT` only if you want a contact address in that header.
@@ -163,7 +224,7 @@ only those words are then used. Add employers in your field to `jobs/sources.jso
 ## Setup keys
 
 **No API keys are needed.** Every environment variable below is optional and read by name only;
-see `.env.example`.
+see `.env.example`. The job-search keys only add postings (see "More jobs (optional free keys)").
 
 | Variable | What it changes | Default |
 |---|---|---|
@@ -173,6 +234,10 @@ see `.env.example`.
 | `CAREER_AGENT_CHROMIUM` | Path to a Chrome/Chromium program. PDFs and self-tests try it before any other browser; `apply` uses it on macOS and Linux | not set |
 | `CAREER_AGENT_TEST_PORT` | Fixed port for the self-tests' local fixture server | a free port |
 | `CAREER_AGENT_CDP_PORT` | Fixed port for the self-tests' attach-to-browser check | a free port |
+| `ADZUNA_APP_ID`, `ADZUNA_APP_KEY` | Search Adzuna (UK) for your roles and locations. Free key: <https://developer.adzuna.com/signup> | not set: Adzuna is skipped, no call |
+| `REED_API_KEY` | Search Reed for your roles and locations. Free key: <https://www.reed.co.uk/developers/jobseeker> | not set: Reed is skipped, no call |
+| `APIFY_TOKEN` | **Opt-in.** Run the LinkedIn and Indeed scrapers on your Apify account. Breaks those sites' terms of use | not set: Apify is skipped, no call |
+| `CAREER_AGENT_APIFY_LINKEDIN_ACTOR`, `CAREER_AGENT_APIFY_INDEED_ACTOR` | Another Apify actor, as `username~actor-name` | `valig~linkedin-jobs-scraper`, `valig~indeed-jobs-scraper` |
 
 ## Files
 
