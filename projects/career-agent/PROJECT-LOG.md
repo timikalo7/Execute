@@ -600,3 +600,81 @@ meta.json still throws a SyntaxError (unchanged); a profile with exactly one ski
 included, now prints no group label.
 
 Evaluation (separate agent): PASS — all 5 fixes behave to spec and tech output is byte-identical; the bare-year title hole the first evaluator found is closed in ba41faa and re-checked by a second evaluator.
+
+## 2026-11-26 — Non-tech boards: weak words, core-CS titles and apprenticeships
+
+**Why.** The owner ran the CV route on Windows, then `npm run daily`, as a fictional marketing student
+(roles "Marketing intern", "Social media intern", "Brand placement"; Claude onboarding chose the boost
+keywords, which included "digital marketing"). "Worth a look" showed nine rows that are not marketing
+roles: two Keyrock quant internships ("Digital Assets"), four digital or software degree
+apprenticeships, PA Consulting's "Digital (Digital Trust & Cyber Security)" internship, and
+"Media Product Intern". Each got through on one broad word, "digital" or "media". The earlier
+separate evaluation had named the same risk ("media" kept "Data Analytics Intern - Media Handling").
+
+**What changed** (`scripts/discover.mjs`, field filter and self-test only; non-tech profiles only).
+- `WEAK_WORDS` (digital, media, social, global, business, data, technology, tech, solutions,
+  operations, analytics, research, strategy, management, product, products, assets, innovation,
+  services, customer, insights). Per role or boost keyword, a weak word is dropped when a non-weak word
+  is left ("digital marketing" gives "marketing"); when only weak words are left, they count as one
+  phrase ("Social media intern" gives "social media"). `target.title_keywords` is used exactly as
+  written, weak words included.
+- `fieldNarrow(profile)`: null for a tech profile. Otherwise a title matching `CS_CORE_RE` (software,
+  developer(s), engineer, engineering, quant, quantitative, machine learning, cyber, devops, full
+  stack, back end, front end, programmer, programming) is dropped unless one of the profile's own
+  field words matches it, and a title matching `\bapprentice(ship)?s?\b` is dropped unless
+  `target.roles` or `target.title_keywords` contain "apprentice". Both `matchJobs` and
+  `fieldOpportunities` apply it; `jobs/manual.json` rows always stay.
+- `fieldFingerprint` for a non-tech profile adds `|cs:kept` or `|cs:dropped`, then `|apprentice:kept` or
+  `|apprentice:dropped`. A
+  finance board stored under the old rules has the same field words, so without this it would keep its
+  old CS rows; now it is cleared once. The tech fingerprint is unchanged (still the legacy one).
+- README: one line in "Not studying computer science?".
+
+**Decisions.**
+- A weak-only phrase is matched literally (single spaces, whole words), through the same
+  `termsRegex` as before. "Social-Media" or "Data & Analytics" in a title does not match "social
+  media" or "data analytics".
+- `boost_keywords` do not ask for apprenticeships (the ticket names roles and title_keywords); a boost
+  keyword that matches `CS_CORE_RE` does allow CS titles, because it is one of the profile's field
+  words.
+- The CS and apprentice rules in `matchJobs` skip a `source: "manual"` row. `main()` never passes manual
+  rows to `matchJobs`, so this only matters if a caller does.
+- The self-test names the persona `marketer`, not a person's name.
+
+**Proven.**
+- `npm test` exits 0: 420 PASS before, 470 after (+50, all in discover: 180 to 230). The never-submit
+  rows still pass.
+- `matchJobs` and `fieldOpportunities` run directly on the ticket's titles: all ten board titles
+  dropped on this branch (origin/main kept all ten in the list path, six in the board path);
+  "Data Science & Marketing Effectiveness Intern" and "Marketing & Operations Analytics Co-op" still
+  kept by the list path. Finance keeps "Summer Analyst - Markets", "Audit Intern 2027" and
+  "Investment Banking Summer Internship", and drops "Software Engineer Intern" and "Global Markets
+  Intern - Markets Engineering" (origin/main kept the second).
+- Tech example, scratch clones of origin/main and this branch, back to back: 2723 postings, the same 8
+  job-board matches, stdout byte-identical (6520 bytes), the same 57 found.json rows (source, kind,
+  URL, title, score, verdict, tier). stderr differs only in the clone's path.
+- Marketing profile (the earlier persona profile, boost `["digital marketing", "social media",
+  "Canva"]`), same 2109 postings: origin/main kept 14 rows, 8 of them CS, quant, cyber or
+  apprenticeship titles; this branch keeps 2 ("Data Science & Marketing Effectiveness Intern",
+  "Marketing & Operations Analytics Co-op - Strategy & Analytics"), none CS or apprenticeship.
+- Finance profile, live: origin/main kept 4 rows, this branch 2. The two dropped are "2027
+  Quantitative Research Markets Associate Program – Off-Cycle Internship – London" (CS core) and the
+  Morgan Stanley event "2027 Insight into Finance Apprenticeships" (apprentice rule).
+- The rows can fail: 22 of 22 mutants in a scratch copy outside the repository turned the discover
+  self-test red (weak list empty, weak words counted alone, no phrase, phrase dropped, title_keywords
+  filtered, one weak word missing, CS rule off, CS always allowed, CS never allowed, no "cyber",
+  apprentice rule off, apprentice always or never allowed, apprentice read from boost keywords,
+  title_keywords ignored, only "apprenticeship" matched, either path not calling the rule, either
+  path dropping manual rows, the rule applied to tech, fingerprint without the switches).
+
+**Consequences for the owner to decide.**
+- The marketing board is now 2 rows, both ruled out by eligibility on the day: the general sources
+  list and Simplify hold almost no UK marketing internships. The filter is right; the supply is thin.
+- A finance student who wants quant roles loses them unless a field word says so (e.g. boost keyword
+  "quant"). Apprenticeship insight events are dropped for everyone who does not ask for
+  apprenticeships.
+
+**Not checked.** Windows and macOS; `npm run daily` after discover (tailor, pdf, dashboard) on the
+new board. Live numbers depend on what employers post on the day.
+
+**Separate evaluation.** Not run yet.
