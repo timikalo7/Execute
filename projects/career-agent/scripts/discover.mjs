@@ -40,7 +40,7 @@ import path from "node:path";
 import { assess } from "./eligibility.mjs";
 import { rank } from "./bar.mjs";
 import { decisions, isDecided, normalizeUrl } from "./decisions.mjs";
-import { API_SOURCES, apiQueries, fetchApiSources, fetchWithTimeout, MAX_QUERIES, redactUrl, scrub } from "./sources-api.mjs";
+import { API_SOURCES, apiQueries, fetchApiSources, fetchWithTimeout, MAX_QUERIES, redactUrl, reedLink, scrub } from "./sources-api.mjs";
 import { barConfig, boostKeywords, fromHeader, homeRegex, inRange, intake, intakeLabel, isTechSector, loadExample, loadProfile, PROJECT_ROOT, SOURCES_EXAMPLE, SOURCES_GENERAL_EXAMPLE, sourcesFileFor, targetCountries, TECH_RE, termsRegex, userAgent } from "./profile.mjs";
 
 const ROOT = process.cwd();
@@ -692,7 +692,7 @@ async function main() {
   // JOB APIS (scripts/sources-api.mjs): Adzuna and more, each only when its free key is set. With
   // no key: one "not configured" line and no network call. Their rows join the job-board rows, so
   // matchJobs below gives them the very same filter (internship, field, exclusions, location).
-  const api = await fetchApiSources(profile, { known: new Set(all.map((j) => normalizeUrl(j.url))) });
+  const api = await fetchApiSources(profile, { known: new Set(all.map((j) => normalizeUrl(j.url))), keep: (rows) => matchJobs(rows, profile) });
   all.push(...api.rows);
   errors.push(...api.errors);
 
@@ -1142,8 +1142,10 @@ async function selfTest() {
   const FAKE = {
     ADZUNA_APP_ID: "fakeid-7f3a91",
     ADZUNA_APP_KEY: "fakekey-c0ffee-0123456789",
+    REED_API_KEY: "fake-reed-1b2c3d4e-0000-4f00-9abc-def012345678",
   };
-  const FAKE_VALUES = Object.values(FAKE);
+  // ...nor their Basic-auth form (Reed sends base64("key:") in a header).
+  const FAKE_VALUES = Object.values(FAKE).flatMap((v) => [v, Buffer.from(`${v}:`).toString("base64")]);
   const leaks = (...things) => FAKE_VALUES.filter((v) => things.some((x) => JSON.stringify(x ?? "").includes(v)));
   const stubFetch = (respond) => {
     const calls = [];
@@ -1271,6 +1273,65 @@ async function selfTest() {
   const apiAt = mainSrc.indexOf("all.push(...api.rows)");
   t("main() adds the API rows to the job-board rows before matchJobs", /fetchApiSources\(profile/.test(mainSrc) && apiAt > 0 && apiAt < mainSrc.indexOf("matchJobs(all, profile)"), "not wired");
   t("main() lists a failed API source with the other failures", /errors\.push\(\.\.\.api\.errors\)/.test(mainSrc), "not wired");
+
+  // REED. Its page lists result fields by display name only (Job Id, Employer Name, Job Title,
+  // Description, Location Name, ...); the fixture spells them in the page's own camelCase. The page
+  // names no wrapper and no link field, so the fixture's wrapper and link keys are deliberately
+  // arbitrary: the parser must not depend on them.
+  const reedJob = (id, title, location, extra = {}) => ({ jobId: id, employerId: 900 + id % 10, employerName: `Example Employer ${id % 10}`, employerProfileId: null, jobTitle: title, locationName: location, minimumSalary: 22000, maximumSalary: 24000, ...extra });
+  const REED_JOBS = [
+    reedJob(51000001, "Audit Intern 2027", "Edinburgh", { jobDescription: "A ten-week audit internship.", anyLinkKey: "https://www.reed.co.uk/jobs/audit-intern-2027/51000001" }),
+    reedJob(51000002, "Senior Accountant", "London", { description: "Qualified ACA or ACCA.", anyLinkKey: "https://www.reed.co.uk/jobs/senior-accountant/51000002" }),
+    reedJob(51000003, "Finance Placement Year 2027", "London"), // no link: looked up, it passes the filter
+    reedJob(51000004, "Graduate Accountant", "Leeds"), // no link, and the filter drops it: never looked up
+  ];
+  const REED_FIXTURE = { someName: 4, otherPlaces: ["London, Ontario"], anyListName: REED_JOBS };
+  const REED_DETAILS = { jobId: 51000003, jobTitle: "Finance Placement Year 2027", employerName: "Example Employer 3", anyExternal: "https://careers.example.com/apply/3", anyReedLink: "https://www.reed.co.uk/jobs/finance-placement-year-2027/51000003" };
+  const reedRows = src("Reed").parse(REED_FIXTURE);
+  t(`Reed: the documented answer gives ${reedRows.length} rows, wrapped or bare`, reedRows.length === 4 && JSON.stringify(src("Reed").parse(REED_JOBS)) === JSON.stringify(reedRows), String(reedRows.length));
+  t("Reed: a row has the job-board shape",
+    JSON.stringify(reedRows[0]) === JSON.stringify({ source: "reed", kind: "job", company: "Example Employer 1", title: "Audit Intern 2027", location: "Edinburgh", url: "https://www.reed.co.uk/jobs/audit-intern-2027/51000001", posted: null, description: "A ten-week audit internship.", _id: "51000001" }),
+    JSON.stringify(reedRows[0]));
+  t("Reed: either documented description name is read", reedRows[1].description === "Qualified ACA or ACCA.", String(reedRows[1].description));
+  t("Reed: an unexpected answer gives no rows and does not throw", [null, {}, { a: [1, 2] }, [], "x"].every((d) => Array.isArray(src("Reed").parse(d)) && src("Reed").parse(d).length === 0), "threw or rows");
+  t("Reed: the link naming the job id wins over another link", reedLink({ jobId: 7, a: "https://www.reed.co.uk/recruiter/x", b: "https://www.reed.co.uk/jobs/y/7" }) === "https://www.reed.co.uk/jobs/y/7" && reedLink({ a: "https://evil.example/reed.co.uk/" }) === "", "wrong link");
+  const reedReq = showRequest("Reed", FAKE);
+  const reedUrl = new URL(reedReq.req.url);
+  const reedAuth = Buffer.from(String(reedReq.req.headers.authorization).replace(/^Basic /, ""), "base64").toString();
+  t(`Reed request: ${reedReq.line}`,
+    reedReq.req.method === "GET" && reedUrl.origin + reedUrl.pathname === "https://www.reed.co.uk/api/1.0/search" &&
+      reedUrl.searchParams.get("keywords") === "Audit intern" && reedUrl.searchParams.get("locationName") === "Edinburgh" &&
+      Number(reedUrl.searchParams.get("resultsToTake")) <= 100 && reedReq.auth && reedAuth === `${FAKE.REED_API_KEY}:` &&
+      !reedReq.req.url.includes(FAKE.REED_API_KEY) && leaks(reedReq.line).length === 0,
+    reedReq.line);
+  t("Reed: a job id that is not a plain number is never put in a lookup path", src("Reed").lookup.request({ _id: "../../users" }, FAKE) === null && src("Reed").lookup.request({ _id: "51000003" }, FAKE).url === "https://www.reed.co.uk/api/1.0/jobs/51000003", "unsafe");
+  {
+    const f = stubFetch(() => answer(REED_FIXTURE));
+    const r = await runApi({ ADZUNA_APP_ID: FAKE.ADZUNA_APP_ID }, f, ["Reed"]);
+    t(`Reed, no key: no fetch, the "not configured" line, not a failure`,
+      f.calls.length === 0 && r.out.includes("Reed: not configured — set REED_API_KEY (free key: www.reed.co.uk/developers/jobseeker)") && r.errors.length === 0 && r.rows.length === 0,
+      `${f.calls.length} calls; ${r.out}`);
+  }
+  for (const status of [401, 403]) {
+    const f = stubFetch(() => answer({ message: "Unauthorized" }, status));
+    const r = await runApi(FAKE, f, ["Reed"]);
+    t(`Reed, HTTP ${status}: "Reed: key rejected (HTTP ${status})", one call, no key printed`,
+      r.errors.length === 1 && r.errors[0] === `Reed: key rejected (HTTP ${status})` && f.calls.length === 1 && leaks(r.out, r.errors, r.rows).length === 0,
+      `${JSON.stringify(r.errors)} ${f.calls.length} calls leaks=${leaks(r.out, r.errors, r.rows).length}`);
+  }
+  const reedFetch = stubFetch((url) => answer(url.includes("/api/1.0/jobs/") ? REED_DETAILS : REED_FIXTURE));
+  const reedRun = await runApi(FAKE, reedFetch, ["Reed"], financeBlank, { keep: (rows) => matchJobs(rows, financeBlank) });
+  const lookups = reedFetch.calls.filter((c) => c.url.includes("/api/1.0/jobs/"));
+  t(`Reed, working key: 6 searches + ${lookups.length} link lookup (only the row the filter keeps), 3 rows, counts printed`,
+    reedFetch.calls.length === 7 && lookups.length === 1 && lookups[0].url.endsWith("/51000003") && reedRun.rows.length === 3 && reedRun.errors.length === 0 &&
+      reedRun.out.includes("3 postings, 1 link(s) looked up, 1 without a link skipped"),
+    `${reedFetch.calls.length} calls; ${reedRun.out}`);
+  t("Reed: the looked-up row carries its reed.co.uk link, and no internal field", reedRun.rows.find((x) => x.title === "Finance Placement Year 2027")?.url === REED_DETAILS.anyReedLink && reedRun.rows.every((x) => !("_id" in x)), JSON.stringify(reedRun.rows));
+  t("Reed: every request sent Basic auth, and the key is in no URL, output or row",
+    reedFetch.calls.every((c) => /^Basic /.test(c.init.headers.authorization) && !c.url.includes(FAKE.REED_API_KEY)) && leaks(reedRun.out, reedRun.errors, reedRun.rows).length === 0, "leak");
+  const reedKept = matchJobs(reedRun.rows, financeBlank).map((j) => j.title);
+  t(`Reed rows through matchJobs: "Senior Accountant" dropped, the internship and placement kept`, reedKept.join("|") === "Audit Intern 2027|Finance Placement Year 2027", JSON.stringify(reedKept));
+  t("main() passes matchJobs as the lookup filter", /keep: \(rows\) => matchJobs\(rows, profile\)/.test(mainSrc), "not wired");
 
   console.log(bad ? `\nself-test FAILED (${bad})` : "\nself-test passed — Junction parser accepts open events and rejects closed ones; scoring and filtering follow the profile");
   process.exit(bad ? 1 : 0);
