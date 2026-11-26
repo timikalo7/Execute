@@ -12,9 +12,9 @@
       "reviewed": "2026-11-25"
     },
     "not-checked": {
-      "max": 30,
-      "reason": "A check that was skipped, reported honestly as skipped rather than as done. Baselined 2026-11-25 against this repository's own tree at 30, owner-approved, so pushes to the public repo are judged by the ratchet instead of failing on seed zeros. Frozen: no NEW ones without closing an old one or raising this deliberately.",
-      "reviewed": "2026-11-25"
+      "max": 31,
+      "reason": "A check that was skipped, reported honestly as skipped rather than as done. Baselined 2026-11-25 against this repository's own tree at 30, owner-approved, so pushes to the public repo are judged by the ratchet instead of failing on seed zeros. Frozen: no NEW ones without closing an old one or raising this deliberately. Raised 30->31 on 2026-11-26, owner-approved: the J.P. Morgan student-role filter's PROJECT-LOG entry records honestly that it was not run on Windows or macOS.",
+      "reviewed": "2026-11-26"
     },
     "unverified": {
       "max": 11,
