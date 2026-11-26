@@ -15,8 +15,9 @@ Everything generated here — every CV bullet, every line of a form answer — m
 string in `profile/master-profile.json`. That is a runnable check, not a guideline:
 `npm run ground -- output/<slug>` fails if a document names a number, year, organisation or
 technology that is not in your profile. **A fail usually means something was invented — read what it
-flags. Fix the claim, never the check.** If it is true, add it to your profile with evidence. (A year
-or name in the posting's own title can be flagged too — see Troubleshooting.)
+flags. Fix the claim, never the check.** If it is true, add it to your profile with evidence. (The
+posting's own title and company are left out of the check, so a year in a title such as
+"2027 Apprentice" is not flagged; the same year in a line about you still is.)
 
 So the quality of everything this tool writes is capped by your profile. Put the numbers and outcomes
 there: "built an app" can never become "built an app used by 120 students" unless you wrote the 120.
@@ -121,6 +122,12 @@ are skipped. If titles in your field use other words, add `target.title_keywords
 only those words are then used. Add employers in your field to `jobs/sources.json` with
 `node scripts/probe-sources.mjs "Company"`.
 
+A few things change for a profile outside tech. `npm run profile:check` does not ask for a GitHub
+link, and the challenge question asks for the hardest challenge you solved, technical or not. If your
+CV has one plain skills list, the CV prints it under SKILLS with no second label. A title with
+"insight" counts only as a student programme ("Spring Insight", "Insight Week", "Insight Programme"),
+so a full-time "Insight Analyst" job is not on your board.
+
 If you leave `target.sector` empty, your roles decide: when none of them names a tech word (software,
 engineer, data, ...), you get your own field, not the tech default. When your field changes, the
 next `npm run discover` clears the old board once and says
@@ -217,7 +224,7 @@ they must take the same input and give the same fields as the defaults
 | `browserType.launch: Executable doesn't exist at …` | Playwright's own browser is not downloaded. If you set `CAREER_AGENT_BROWSER=chromium` or `--browser=chromium` (Playwright's browser only), remove it so the tool uses your Edge or Chrome. Or run `npx playwright install chromium`. On a locked-down machine, set `CAREER_AGENT_CHROMIUM` to the path of a Chrome or Chromium program. |
 | `career-agent: no jobs/found.json yet` | Run `npm run discover` first (or `npm run daily`). |
 | `RESULT: FAIL — N claim(s) not traceable to the profile` | The named number, year or name is not in your profile. If it is true, add it to the profile with evidence; if not, remove it. Never edit the check. |
-| `ground` flags a year or name that comes from the posting's own title, e.g. `year "2027" — profile covers no work in this year` for an event called "Example Hackathon 2027" | That is the posting's name, not your claim. Search the flagged file for it. In the `# Gaps and fit — …` title of `gap.md`, or the `Ordered for: …` note at the end of `cv.md` (a note for you, not in the file you upload), it is only the posting's name. In a CV line about you, remove it from that line — or, if you took part in the event, add the event to your profile. |
+| `ground` flags a year or name you think comes from the posting, e.g. `year "2027" — profile covers no work in this year` | `ground` leaves out the posting's own title and company (read from the pack's `meta.json`) before it checks, so a year in the title, such as "2027 Apprentice", is not flagged. Search the flagged file for the value. In a line about you, remove it — or, if it is true (you took part in that event), add it to your profile with evidence. |
 | `There was an error verifying your application` on a form | The site's own script had not finished setting up the form. Reload the page, wait, and run `apply` again (it checks for this and says so). |
 | `npm WARN EBADENGINE`, or a `SyntaxError` when a script starts | Your Node is older than 20. Install the current LTS and open a new terminal. |
 

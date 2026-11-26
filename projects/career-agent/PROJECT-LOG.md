@@ -481,3 +481,105 @@ the key scrub does not cover percent-encoded forms (no path seen that prints one
 Apify answer counts as zero rows, not a failure; real-key parsing is unproven here.
 
 Evaluation (separate agent): PASS — the branch behaves identically with no keys and makes no calls to the new hosts; fake keys, including ones with `&`, `/` and spaces, are rejected with no leak; both fixes work end to end; bad input does not crash; both gates pass on a clean tree.
+
+## 2026-11-26 — Five rough edges from a non-tech attendee test
+
+**Why.** A full CV-based attendee test on public main `be1bbab`, with a fictional marketing student:
+her CV went into `profile/cv/`, a separate agent ran `/career-onboard` (33 questions, answered from
+a persona sheet), then `npm run daily` and `npm run ground`. Five problems:
+1. `npm run ground` failed a pack with `year "2027"` in cv.md, gap.md, answers.md and COWORK.md. The
+   year came only from the posting's own title, "2027 Apprentice - Human Insight Social Research -
+   London", quoted in the gap title, the "Ordered for:" note and the "why this role" answer.
+2. Full-time "Lead Insight Analyst - Marketing & Acquisition" reached the board, because `INTERN_RE`
+   matched a bare "insight".
+3. `npm run setup < /dev/null` wrote a skeleton with the example's CS skill groups and three of its
+   booleans (`target.remote_ok`, `target.bar.intern_only`, `target.events.require_travel_funding`);
+   the quiz asked for the "hardest technical challenge"; profile:check recommended GitHub.
+4. `/career-onboard` never asked for or offered `identity.headline` (required), so the run ended on
+   `FAIL … Fix with: npm run setup (or /career-onboard)`.
+5. The CV printed the SKILLS heading and then "Skills: Canva, …".
+
+**What changed.**
+- `scripts/ground-check.mjs`: `stripTarget()` removes every exact occurrence of the posting's title
+  and company, case-insensitively, before the claims are read; `main()` passes both from the pack's
+  `meta.json` (the source the company rule already uses). A year only inside the quoted title is no
+  longer a claim; the same year anywhere else still is.
+- `scripts/discover.mjs`: `INTERN_RE` counts "insight" only when followed by day(s), week(s),
+  programme, program, event, evening, series or scheme, or as "spring insight".
+- `scripts/setup.mjs`: `emptyLike` empties a boolean to null; the skeleton's `skills` keeps only its
+  `_help` note.
+- `scripts/profile-check.mjs`: `identity.links.github` carries `when: isTechSector`; `answered()`
+  treats a field that does not apply as answered, so profile:check does not list it and the setup quiz
+  does not ask it. The challenge question reads "The hardest challenge you solved (technical or
+  not)".
+- `scripts/cv-html.mjs`: with exactly one skill group, or a group keyed "skills" (any case), the items
+  print with no label, in cv.html and cv.md alike. Several named groups print as before.
+- `.claude/commands/career-onboard.md`: `identity.headline` is in the list to ask; with no summary
+  line on the CV, Claude offers ONE suggestion built only from CV facts, says it is a suggestion, and
+  saves it only if accepted or edited. A skipped required field ends with which field is missing and
+  why, not a loop back to the same command.
+- `README.md`: the honesty note, the troubleshooting row for ground, and a paragraph for non-tech
+  profiles.
+
+**Decisions.**
+- The booleans become null, not absent: the key stays next to its `_help` note, so the user can see
+  the switch. Every reader takes null as its default: `remote_ok` and `require_travel_funding` are read
+  as `!== false` (profile.mjs `remoteOk`, eligibility.mjs `contextFor`); no script reads
+  `intern_only`.
+- `skills` keeps its `_help` note and has zero group keys.
+- A stripped title becomes the lower-case word "posting", not nothing. Deleting it made the word after
+  a title at a line start read as a line start, which excuses a capitalised word: an invented
+  single-word employer after the title would pass. A self-test row covers it.
+- The strip runs before all three checks. For numbers that changes nothing: a number in the title was
+  already allowed by the company allowance.
+- A profile with no sector and no roles still counts as tech (`isTechSector`), so a fresh skeleton
+  still lists GitHub until the roles are known.
+- `cv-html.mjs` had no self-test. It has one now, and `package.json`'s `test` script runs it: the one
+  file changed outside the ticket's list, because a self-test that `npm test` never runs is not a
+  check.
+
+**Consequence for the owner to decide.** The PA Consulting "2027 Apprentice - Human Insight Social
+Research - London" posting reached the marketing board only through the bare "insight" in "Human
+Insight". With the fix it is dropped as well. Measured on the same 2111 fetched postings: origin/main
+kept 2 job-board matches for the persona, this branch keeps 0. `INTERN_RE` has no apprentice word. If
+apprenticeships should count for a non-tech profile, the low-risk place is `FIELD_INTERN_RE` (as with
+"vacation scheme"), which leaves the tech filter unchanged. Not done here: outside this ticket.
+
+**Proven.**
+- `npm test` exits 0: 378 PASS before, 419 after (+41: ground 17 to 25, setup 21 to 27, profile-check
+  22 to 29, discover 167 to 180, cv-html 0 to 7). The never-submit rows still pass.
+- The persona rerun in scratch clones (origin/main and this branch, same 2111 postings): "Lead Insight
+  Analyst" is in origin/main's found.json, output/ and dashboard, and in none of the branch's. With the
+  PA posting added by hand to `jobs/manual.json` in the branch clone, `npm run ground` passes on every
+  output folder (2 of 2); origin/main's PA pack still fails with the four `year "2027"` findings. Page 1
+  of the branch CV, rasterised, shows SKILLS once, then the items with no label.
+- `npm run setup < /dev/null` in a fresh clone: `skills` keys `["_help"]`, the three booleans null,
+  no boolean anywhere in the file (origin/main: four CS groups, three `true`).
+- `npm run profile:check`: the persona's profile has no GitHub line (origin/main had one); the example
+  profile still passes clean, and with its GitHub link removed it still shows `! identity.links.github`
+  on both.
+- The tech example, origin/main against this branch, back to back: the same 2715 postings, the same 8
+  job-board URLs and titles, the same 57 rows (source, URL, title, score, verdict, tier); 144 of 144
+  pack files byte-identical across 24 packs (cv.md, cv.html, gap.md, answers.md, COWORK.md, meta.json);
+  24 of 24 PDFs rasterise to identical images. No title changed because of the `INTERN_RE` fix.
+- The rows can fail: 18 of 18 mutants in a scratch copy outside the repository turned their self-test
+  red (ground: strip not wired in main, case-sensitive match, title deleted outright, every year
+  removed, strip ignored; INTERN_RE: bare insight, no "spring insight", no "programme"; skeleton:
+  booleans copied, skill groups kept; profile-check: GitHub for everyone, `when` ignored, GitHub for
+  no one, old challenge wording; cv-html: every group labelled, no single-group rule, no labels at all,
+  cv.md left labelled). The GitHub-for-everyone mutant also turns the setup quiz row red.
+
+**Not checked.**
+- The `/career-onboard` changes are instructions to Claude; no live onboarding run exercised them.
+- Windows and macOS.
+
+**Known limits.**
+- `jpmStudentRole` (J.P. Morgan source) still reads a bare "insight" through `STUDENT_PROGRAMME_RE`;
+  this ticket changed `INTERN_RE` only.
+- The setup quiz's skill-group prompt still gives CS examples (programming, web_and_cloud, ...); this
+  ticket changed the skeleton only.
+- answers.mjs still heads the answer "Hardest technical challenge" (not edited, by the ticket).
+- profile:check's last line still says `Fix with: npm run setup (or /career-onboard in Claude Code)`.
+- "insight events" and "insight evenings" (plural) do not count; the ticket's list names the singular.
+
+**Separate evaluation.** Not run yet.
