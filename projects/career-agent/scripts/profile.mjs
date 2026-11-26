@@ -115,6 +115,28 @@ export function inRange(location, p) {
   return remoteOk(p) && REMOTE_RE.test(loc);
 }
 
+// A sector that names tech. "IT" must be a whole word, so "Audit" is not read as IT.
+const TECH_SECTOR_RE = /tech|software|computing|computer|data|engineering|\bIT\b/i;
+
+/** True for a tech profile: no target.sector, or one that names tech. discover keeps TECH_RE for it. */
+export function isTechSector(p) {
+  const sector = String(p?.target?.sector || "").trim();
+  return !sector || TECH_SECTOR_RE.test(sector);
+}
+
+export const SOURCES_EXAMPLE = path.join(PROJECT_ROOT, "config", "sources.example.json");
+export const SOURCES_GENERAL_EXAMPLE = path.join(PROJECT_ROOT, "config", "sources.general.example.json");
+
+/**
+ * The employer list discover reads: your jobs/sources.json when it exists; until then the shipped
+ * example for your sector — tech employers for a tech profile, a multi-sector list for any other.
+ */
+export function sourcesFileFor(p, { root = process.cwd(), exists = fs.existsSync } = {}) {
+  const own = path.join(root, "jobs", "sources.json");
+  if (exists(own)) return own;
+  return isTechSector(p) ? SOURCES_EXAMPLE : SOURCES_GENERAL_EXAMPLE;
+}
+
 /** The offer already held, or null. */
 export function offerToBeat(p) {
   const o = p?.target?.bar_to_beat;

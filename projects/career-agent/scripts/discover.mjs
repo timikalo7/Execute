@@ -26,7 +26,8 @@
  * CAREER_AGENT_CONTACT (default: a neutral "career-agent (personal job search)").
  *
  * The list of employer boards is jobs/sources.json — your own copy, gitignored. Until you make one,
- * config/sources.example.json is used. Add rows by hand or with `node scripts/probe-sources.mjs`.
+ * config/sources.example.json is used for a tech profile and config/sources.general.example.json
+ * (many sectors) for any other. Add rows by hand or with `node scripts/probe-sources.mjs`.
  *
  * Usage:
  *   node scripts/discover.mjs               # fetch, filter, merge into jobs/found.json
@@ -39,11 +40,10 @@ import path from "node:path";
 import { assess } from "./eligibility.mjs";
 import { rank } from "./bar.mjs";
 import { decisions, isDecided } from "./decisions.mjs";
-import { barConfig, boostKeywords, fromHeader, homeRegex, inRange, intake, loadExample, loadProfile, PROJECT_ROOT, targetCountries, termsRegex, userAgent } from "./profile.mjs";
+import { barConfig, boostKeywords, fromHeader, homeRegex, inRange, intake, isTechSector, loadExample, loadProfile, PROJECT_ROOT, SOURCES_EXAMPLE, SOURCES_GENERAL_EXAMPLE, sourcesFileFor, targetCountries, termsRegex, userAgent } from "./profile.mjs";
 
 const ROOT = process.cwd();
 const SOURCES = path.join(ROOT, "jobs", "sources.json");
-const SOURCES_EXAMPLE = path.join(PROJECT_ROOT, "config", "sources.example.json");
 const FOUND = path.join(ROOT, "jobs", "found.json");
 
 const args = process.argv.slice(2);
@@ -72,18 +72,10 @@ const EXCLUDE_TERMS = [
 ];
 
 // ---------------------------------------------------------------- the attendee's field
-// A sector that names tech keeps TECH_RE. "IT" must be a whole word, so "Audit" is not read as IT.
-const TECH_SECTOR_RE = /tech|software|computing|computer|data|engineering|\bIT\b/i;
 // Words in target.roles that say what KIND of role it is, not which field. Never field words.
 const GENERIC_WORDS = new Set(
   "intern internship placement summer graduate programme program scheme analyst associate year role roles and the for with in of".split(" "),
 );
-
-/** True when the profile is a tech profile: no sector, or a sector that names tech. */
-export const isTechSector = (profile) => {
-  const sector = String(profile?.target?.sector || "").trim();
-  return !sector || TECH_SECTOR_RE.test(sector);
-};
 
 /**
  * The words a job-board title must contain to count as the attendee's field. Pure.
@@ -128,6 +120,17 @@ export function excludeRe(profile) {
   const kept = EXCLUDE_TERMS.filter(([, keys]) => !keys.some(has)).map(([term]) => term);
   if (kept.length === EXCLUDE_TERMS.length) return EXCLUDE_RE;
   return new RegExp(`\\b(${kept.join("|")})\\b`, "i");
+}
+
+/**
+ * The same field rule for what the opportunity sources find (job lists, hackathons, events): for a
+ * profile with its own field words, a row must name the field in its title. Rows you add yourself in
+ * jobs/manual.json always stay. A tech profile gets the very same array back. Pure.
+ */
+export function fieldOpportunities(rows, profile) {
+  if (!fieldWords(profile).words) return rows;
+  const field = fieldWordsRe(profile);
+  return rows.filter((o) => o.source === "manual" || field.test(String(o.title || "")));
 }
 
 // Law firms call their summer internship a "vacation scheme". Accepted for a profile with its own
@@ -629,9 +632,10 @@ export function scoreOpportunity(o, profile) {
 
 async function main() {
   const profile = loadProfile();
-  const sourcesFile = fs.existsSync(SOURCES) ? SOURCES : SOURCES_EXAMPLE;
-  if (sourcesFile === SOURCES_EXAMPLE)
-    console.error(`  using ${path.relative(ROOT, SOURCES_EXAMPLE)} — copy it to jobs/sources.json and edit it to choose your own employers`);
+  // jobs/sources.json when you have one; until then the shipped example for your sector.
+  const sourcesFile = sourcesFileFor(profile, { root: ROOT });
+  if (sourcesFile !== SOURCES)
+    console.error(`  using ${path.relative(ROOT, sourcesFile)} — copy it to jobs/sources.json and edit it to choose your own employers`);
   const sources = JSON.parse(fs.readFileSync(sourcesFile, "utf8"));
   const prev = fs.existsSync(FOUND) ? JSON.parse(fs.readFileSync(FOUND, "utf8")) : { jobs: [] };
   const seen = new Set(prev.jobs.map((j) => j.url));
@@ -685,6 +689,14 @@ async function main() {
     if (byUrl.size !== opp.rows.length)
       console.error(`  ${"dedupe".padEnd(18)} ${"".padEnd(11)} ${opp.rows.length - byUrl.size} duplicate url(s) collapsed, manual kept`);
     opp.rows = [...byUrl.values()];
+  }
+  // A finance or marketing student is not shown a list of CS internships and AI hackathons: for a
+  // non-tech profile, discovered opportunities must name the field too (hand-added rows always stay).
+  {
+    const before = opp.rows.length;
+    opp.rows = fieldOpportunities(opp.rows, profile);
+    if (opp.rows.length !== before)
+      console.error(`  ${"field filter".padEnd(18)} ${"".padEnd(11)} ${before - opp.rows.length} outside your field dropped (see "field words" below)`);
   }
 
   const opportunities = opp.rows
@@ -1016,6 +1028,38 @@ async function selfTest() {
   // main() really uses the rule: a rule that exists but is not wired in fails here.
   const mainSrc = fs.readFileSync(new URL(import.meta.url), "utf8").split("async function main()")[1].split("async function selfTest()")[0];
   t("main() filters job boards with matchJobs, not TECH_RE", /matchJobs\(all, profile\)/.test(mainSrc) && !/TECH_RE\.test/.test(mainSrc), "not wired");
+
+  // What the opportunity sources find follows the same field rule; your own manual rows never drop.
+  const OPPS = [
+    { source: "simplify", kind: "job", title: "Software Engineer Intern" },
+    { source: "jpmorgan", kind: "job", title: "Summer Analyst Programme: Global Markets Intern" },
+    { source: "devpost", kind: "hackathon", title: "Global AI Builder's Challenge" },
+    { source: "morgan-stanley", kind: "event", title: "2027 Spring Insight: Careers Across Finance, Risk & Business" },
+    { source: "manual", kind: "job", title: "Software Engineer Intern" },
+  ];
+  const oppKept = fieldOpportunities(OPPS, finance).map((o) => `${o.source}:${o.title}`);
+  t("finance opportunities: CS job and AI hackathon dropped, field rows and manual kept",
+    oppKept.join("|") === "jpmorgan:Summer Analyst Programme: Global Markets Intern|morgan-stanley:2027 Spring Insight: Careers Across Finance, Risk & Business|manual:Software Engineer Intern", JSON.stringify(oppKept));
+  t("marketing opportunities: only the hand-added row is left", fieldOpportunities(OPPS, marketing).map((o) => o.source).join() === "manual", JSON.stringify(fieldOpportunities(OPPS, marketing)));
+  t("a tech profile's opportunities are the very same array", fieldOpportunities(OPPS, ex) === OPPS, "filtered");
+  t("main() filters opportunities with fieldOpportunities", /fieldOpportunities\(opp\.rows, profile\)/.test(mainSrc), "not wired");
+
+  // WHICH EMPLOYER LIST: jobs/sources.json when it exists, else the shipped example for the sector.
+  const none = { root: path.join(PROJECT_ROOT, "no-such-dir"), exists: () => false };
+  t("finance with no jobs/sources.json uses sources.general.example.json", sourcesFileFor(finance, none) === SOURCES_GENERAL_EXAMPLE, sourcesFileFor(finance, none));
+  t("marketing with no jobs/sources.json uses sources.general.example.json", sourcesFileFor(marketing, none) === SOURCES_GENERAL_EXAMPLE, sourcesFileFor(marketing, none));
+  t("the tech example with no jobs/sources.json keeps sources.example.json", sourcesFileFor(ex, none) === SOURCES_EXAMPLE, sourcesFileFor(ex, none));
+  t("an existing jobs/sources.json wins for every sector", [finance, marketing, ex].every((p) => sourcesFileFor(p, { root: "r", exists: () => true }) === path.join("r", "jobs", "sources.json")), "ignored");
+  t("main() picks the file with sourcesFileFor", /sourcesFileFor\(profile/.test(mainSrc), "not wired");
+  // ...and the shipped general list is well formed: 10-20 board rows the adapters know, dated notes.
+  const general = JSON.parse(fs.readFileSync(SOURCES_GENERAL_EXAMPLE, "utf8"));
+  const tier1 = general.tier1 || [];
+  t(`general list has 10-20 tier1 rows (${tier1.length})`, tier1.length >= 10 && tier1.length <= 20, String(tier1.length));
+  t("every general tier1 row names a known ATS and a slug", tier1.every((r) => ADAPTERS[r.ats] && r.slug && r.company), JSON.stringify(tier1.filter((r) => !ADAPTERS[r.ats] || !r.slug)));
+  t("no employer appears twice in the general list", new Set(tier1.map((r) => r.company)).size === tier1.length, "duplicate");
+  const t2 = general.tier2_browser_required || [];
+  t(`every tier2 row has name, https url, a dated measurement and handling (${t2.length})`,
+    t2.length > 0 && t2.every((r) => r.name && /^https:\/\//.test(r.url) && Object.keys(r).some((k) => /^measured_\d{4}_\d{2}_\d{2}$/.test(k)) && r.handling), "malformed");
 
   console.log(bad ? `\nself-test FAILED (${bad})` : "\nself-test passed — Junction parser accepts open events and rejects closed ones; scoring and filtering follow the profile");
   process.exit(bad ? 1 : 0);

@@ -1,0 +1,49 @@
+{
+  "_README": [
+    "The employer job boards discover.mjs reads when your profile's target.sector is NOT a tech sector and you have no jobs/sources.json yet. A tech sector (or no sector) uses config/sources.example.json instead.",
+    "It is a multi-sector starting list: trading and fintech, consulting, retail and consumer, marketing and media, energy and engineering, and a charity. Copy it to jobs/sources.json (gitignored) and make the list yours.",
+    "tier1 rows are public ATS board APIs: ats is one of greenhouse, lever, ashby, smartrecruiters; slug is the company's board name on that ATS. Every row answered with live postings on 2026-11-26 (node scripts/probe-sources.mjs --verify).",
+    "Do not guess slugs: `node scripts/probe-sources.mjs \"Company Name\"` tries candidate slugs against every ATS and reports which ones answer, and `--verify` re-checks every row here.",
+    "tier2_browser_required lists large employers whose own careers sites this tool cannot fetch (Workday and similar portals, bot walls). The dashboard shows them under 'Check these yourself'. Each row: name, url, measured_YYYY_MM_DD (what was seen), handling."
+  ],
+  "tier1": [
+    { "company": "Jane Street", "ats": "greenhouse", "slug": "janestreet" },
+    { "company": "Optiver", "ats": "greenhouse", "slug": "optiverus" },
+    { "company": "DRW", "ats": "greenhouse", "slug": "drweng" },
+    { "company": "Qube Research & Technologies", "ats": "greenhouse", "slug": "quberesearchandtechnologies" },
+    { "company": "Squarepoint Capital", "ats": "greenhouse", "slug": "squarepointcapital" },
+    { "company": "Virtu Financial", "ats": "greenhouse", "slug": "virtu" },
+    { "company": "Lendable", "ats": "ashby", "slug": "lendable" },
+    { "company": "Wise", "ats": "smartrecruiters", "slug": "wise" },
+    { "company": "PA Consulting", "ats": "smartrecruiters", "slug": "paconsulting" },
+    { "company": "Roland Berger", "ats": "smartrecruiters", "slug": "rolandberger" },
+    { "company": "Baringa", "ats": "greenhouse", "slug": "baringa" },
+    { "company": "ASOS", "ats": "smartrecruiters", "slug": "asos" },
+    { "company": "Gymshark", "ats": "greenhouse", "slug": "gymshark" },
+    { "company": "WPP", "ats": "greenhouse", "slug": "wpp" },
+    { "company": "Ogilvy", "ats": "greenhouse", "slug": "ogilvy" },
+    { "company": "The Economist Group", "ats": "greenhouse", "slug": "theeconomistgroup" },
+    { "company": "Sony Music", "ats": "greenhouse", "slug": "sonymusicentertainment" },
+    { "company": "Octopus Energy", "ats": "lever", "slug": "octoenergy" },
+    { "company": "Bosch", "ats": "smartrecruiters", "slug": "BoschGroup" },
+    { "company": "Nesta", "ats": "greenhouse", "slug": "nesta" }
+  ],
+  "tier2_browser_required": [
+    { "name": "Goldman Sachs", "url": "https://higher.gs.com/campus", "measured_2026_11_26": "Answered 200 with an 8 KB page that holds no job list in its HTML. No public job-board API this tool reads.", "handling": "Not fetched. Open it in your browser and search for internships in your field." },
+    { "name": "Barclays", "url": "https://search.jobs.barclays/", "measured_2026_11_26": "Answered 200. The page links to Workday (myworkdayjobs), which has no public board this tool reads.", "handling": "Not fetched. Open it in your browser and search for internships in your field." },
+    { "name": "HSBC", "url": "https://www.hsbc.com/careers/students-and-graduates", "measured_2026_11_26": "Answered 200 (190 KB). Its HTML names none of Greenhouse, Lever, Ashby or SmartRecruiters.", "handling": "Not fetched. Open it in your browser and search for internships in your field." },
+    { "name": "Lloyds Banking Group", "url": "https://www.lloydsbankinggroup.com/careers.html", "measured_2026_11_26": "Answered 200. The page links to Workday (myworkdayjobs).", "handling": "Not fetched. Open it in your browser and search for internships in your field." },
+    { "name": "NatWest Group", "url": "https://jobs.natwestgroup.com/", "measured_2026_11_26": "Answered 403 to an automated request.", "handling": "Not fetched. Open it in your browser and search for internships in your field." },
+    { "name": "Citi", "url": "https://jobs.citi.com/students-and-graduates", "measured_2026_11_26": "Answered 200. The page links to Workday (myworkdayjobs) and Eightfold.", "handling": "Not fetched. Open it in your browser and search for internships in your field." },
+    { "name": "BlackRock", "url": "https://careers.blackrock.com/early-careers/", "measured_2026_11_26": "Answered 200 (43 KB). Its HTML names none of Greenhouse, Lever, Ashby or SmartRecruiters.", "handling": "Not fetched. Open it in your browser and search for internships in your field." },
+    { "name": "Deloitte UK", "url": "https://www.deloitte.com/uk/en/careers.html", "measured_2026_11_26": "Answered 200. The page names Workday.", "handling": "Not fetched. Open it in your browser and search for internships in your field." },
+    { "name": "PwC UK", "url": "https://www.pwc.co.uk/careers/early-careers.html", "measured_2026_11_26": "Answered 200. The page loads Phenom, not a board this tool reads.", "handling": "Not fetched. Open it in your browser and search for internships in your field." },
+    { "name": "EY UK", "url": "https://www.ey.com/en_uk/careers/students", "measured_2026_11_26": "Answered 200 (481 KB). Its HTML names none of Greenhouse, Lever, Ashby or SmartRecruiters.", "handling": "Not fetched. Open it in your browser and search for internships in your field." },
+    { "name": "KPMG UK", "url": "https://www.kpmgcareers.co.uk/", "measured_2026_11_26": "Answered 200 (77 KB). Its HTML names none of Greenhouse, Lever, Ashby or SmartRecruiters.", "handling": "Not fetched. Open it in your browser and search for internships in your field." },
+    { "name": "Unilever", "url": "https://careers.unilever.com/", "measured_2026_11_26": "Answered 200. The page links to Workday (myworkdayjobs).", "handling": "Not fetched. Open it in your browser and search for internships in your field." },
+    { "name": "L'Oréal", "url": "https://careers.loreal.com/", "measured_2026_11_26": "Answered 200 (128 KB). Its HTML names none of Greenhouse, Lever, Ashby or SmartRecruiters.", "handling": "Not fetched. Open it in your browser and search for internships in your field." },
+    { "name": "Linklaters", "url": "https://careers.linklaters.com/", "measured_2026_11_26": "Redirected to linklaters.com and answered 200. The page links to Workday (myworkdayjobs).", "handling": "Not fetched. Open it in your browser and search for vacation schemes and internships." },
+    { "name": "Civil Service Fast Stream", "url": "https://www.faststream.gov.uk/", "measured_2026_11_26": "Redirected to civil-service-careers.gov.uk, which answered 403 to an automated request.", "handling": "Not fetched. Open it in your browser and search for internships in your field." },
+    { "name": "BBC", "url": "https://careers.bbc.co.uk/", "measured_2026_11_26": "Answered 403 to an automated request.", "handling": "Not fetched. Open it in your browser and search for internships in your field." }
+  ]
+}
