@@ -877,6 +877,15 @@ async function main() {
  * the board, and you would find out by opening a closed form.
  */
 async function selfTest() {
+  // A promise that never settles (a timeout that never fires, a stub never answered) lets Node exit
+  // with code 0 halfway through, and a half-run self-test would read as a pass. It must not.
+  let finished = false;
+  process.on("exit", (code) => {
+    if (!finished && code === 0) {
+      console.log("\nself-test FAILED — it stopped before its last row (a request or timer never settled)");
+      process.exitCode = 1;
+    }
+  });
   const junction = OPPORTUNITY_SOURCES.find((s) => s.name === "Junction");
   const day = 86400000;
   const iso = (offset) => new Date(Date.now() + offset).toISOString();
@@ -1249,6 +1258,14 @@ async function selfTest() {
     }
     t("a hung request is aborted by its timeout (the timer fires)", /^timed out after/.test(got) && Date.now() - started < 2000, got);
   }
+  {
+    const b64 = Buffer.from(`${FAKE.REED_API_KEY}:`).toString("base64");
+    const f = stubFetch(() => {
+      throw new Error(`socket hang up (request had authorization: Basic ${b64})`);
+    });
+    const r = await runApi(FAKE, f, ["Reed"]);
+    t("Reed: an error that quotes the Basic-auth header is scrubbed before it is printed", r.errors.length === 1 && !r.errors[0].includes(b64) && !r.out.includes(b64) && r.errors[0].includes("[redacted]"), JSON.stringify(r.errors).replaceAll(b64, "B64"));
+  }
   t("every API source has a timeout of 5 minutes or less", API_SOURCES.every((s) => s.timeoutMs > 0 && s.timeoutMs <= 300000), JSON.stringify(API_SOURCES.map((s) => [s.name, s.timeoutMs])));
   // A working key: every query is asked, duplicates collapse, the key leaves no trace in the rows.
   const adzFetch = stubFetch(() => answer(ADZUNA_FIXTURE));
@@ -1421,6 +1438,7 @@ async function selfTest() {
   }
 
   console.log(bad ? `\nself-test FAILED (${bad})` : "\nself-test passed — Junction parser accepts open events and rejects closed ones; scoring and filtering follow the profile");
+  finished = true;
   process.exit(bad ? 1 : 0);
 }
 
