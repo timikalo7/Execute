@@ -470,3 +470,14 @@ terms-of-use warning; everything works with no keys.
   scans the project.
 
 **Separate evaluation.** Not run yet.
+
+**Separate evaluation (fresh agent, spec + commits only).** `npm test` exit 0, never-submit intact;
+no-key run identical to origin/main (57 job-board URLs, a fetch spy saw 21 identical calls and none
+to adzuna, reed or apify); fake keys holding `&`, `/` and spaces rejected by all four live services
+with no trace of the key in stdout, stderr or jobs/; both fixes work end to end (a field switch
+clears the board once, the same field keeps the merge); malformed JSON, HTTP 500, null and throwing
+fetches do not crash; security-gate and system-design-gate pass on a clean tree. Limits it found:
+the key scrub does not cover percent-encoded forms (no path seen that prints one); a non-array
+Apify answer counts as zero rows, not a failure; real-key parsing is unproven here.
+
+Evaluation (separate agent): PASS — the branch behaves identically with no keys and makes no calls to the new hosts; fake keys, including ones with `&`, `/` and spaces, are rejected with no leak; both fixes work end to end; bad input does not crash; both gates pass on a clean tree.
