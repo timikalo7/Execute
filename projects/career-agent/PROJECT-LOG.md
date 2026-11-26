@@ -219,3 +219,16 @@ excuse a senior title. A mutant with the literal test turns the "Summer Associat
 
 **Not checked.** Windows and macOS (Linux container only). The live result depends on what
 J.P. Morgan posts on the day. A separate-agent evaluation of this change has not been run yet.
+
+**Separate evaluation (fresh agent, spec + branch only).** Scope is the two files; `npm test` exit 0
+on both sides, 226 to 240 PASS lines by one counting method, never-submit line still printed;
+`jpmStudentRole` kept every student title it was given and dropped every full-time one, and returns
+false (no throw) on an empty, null or non-string title; a live London/Edinburgh run with a 2027
+intake gave 45 to 5 J.P. Morgan rows, the other sources' 522 URLs identical, and no CV folder for a
+dropped title. Correction to the entry above: tailor also wrote two "jp-morgan-chase" folders
+(a payments intern and a research fellow) that come from ANOTHER source under different titles;
+they are not J.P. Morgan source rows. Limits it found: "Summer Program Manager" is kept (a student
+word excuses a senior one); "Analyst Training Program" and "Associate Program" are dropped (no
+student word).
+
+Evaluation (separate agent): PASS — the filter keeps the real student roles and drops the full-time ones; tests go 226 to 240, other sources' URLs are identical, and no full-time J.P. Morgan CV folder is written.
