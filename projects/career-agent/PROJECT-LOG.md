@@ -705,3 +705,14 @@ Intern". Hole it found, not fixed: a phrase term matches only with single spaces
 Intern" is dropped for a profile whose only social-media term is the phrase "social media".
 
 Evaluation (separate agent): PASS — tech output byte-identical on live runs, marketing board 14 to 2 with no CS/quant/cyber/apprentice rows, finance keeps its roles, and npm test is 479 PASS vs 420 with never-submit intact; the only hole is the hyphenated "Social-Media Intern" being dropped, which the log discloses.
+
+## 2026-11-26 — every profile copy is gitignored, not only master-profile.json
+
+**What broke.** The owner tested the CV route on Windows by renaming the Sam test profile to
+`profile/sam-profile.json` (onboarding fills only empty fields, so a new person needs a fresh file).
+Their local Claude then reported two untracked files: `.gitignore` covered only
+`profile/master-profile.json`, so a renamed or backup profile, full of personal data, could be
+committed by accident. **Fix.** `profile/*.json` is ignored, with `!profile/master-profile.example.json`
+the only tracked one. Proven with `git check-ignore -v`: `profile/sam-profile.json`,
+`profile/master-profile.backup.json` and `profile/master-profile.json` are ignored, the example is not.
+No code changed, so no separate evaluation was needed for the push gate.
