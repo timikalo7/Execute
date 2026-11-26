@@ -562,6 +562,9 @@ apprenticeships should count for a non-tech profile, the low-risk place is `FIEL
   job-board URLs and titles, the same 57 rows (source, URL, title, score, verdict, tier); 144 of 144
   pack files byte-identical across 24 packs (cv.md, cv.html, gap.md, answers.md, COWORK.md, meta.json);
   24 of 24 PDFs rasterise to identical images. No title changed because of the `INTERN_RE` fix.
+- `npm run ground` on all 24 tech example packs: origin/main 21 pass, 3 fail, each only on the
+  posting's own name ("Bath Game Jam 2026", "#BuildHybridAI 2026", "SheHacks+ 11" in the gap title
+  and the "Ordered for:" note); this branch 24 of 24 pass.
 - The rows can fail: 18 of 18 mutants in a scratch copy outside the repository turned their self-test
   red (ground: strip not wired in main, case-sensitive match, title deleted outright, every year
   removed, strip ignored; INTERN_RE: bare insight, no "spring insight", no "programme"; skeleton:
