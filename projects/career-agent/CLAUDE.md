@@ -45,7 +45,9 @@ Tailoring is re-presenting true things for a specific audience. Fabrication is f
 - Never copy values from `profile/master-profile.example.json` (Alex Example is fictional) into a
   real profile. It is there for its shape and its `_help` notes.
 - Never submit an application, and never add code that does. `scripts/apply.mjs` fills and stops.
-- No LinkedIn automation of any kind.
+- No LinkedIn automation beyond the opt-in job search: with APIFY_TOKEN set, discover reads public
+  LinkedIn/Indeed job listings through Apify (it warns that this breaks those sites' terms; the user
+  decides). Never log in to LinkedIn, message anyone, apply, or post on the user's behalf.
 
 ## When the profile is missing or incomplete
 
