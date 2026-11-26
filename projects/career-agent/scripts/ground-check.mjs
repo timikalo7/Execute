@@ -99,7 +99,9 @@ const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
  * pass. Longest name first, so a company named inside the title does not break the title's match.
  */
 export function stripTarget(text, names = []) {
-  const list = [...new Set(names.map((n) => String(n ?? "").trim()).filter((n) => n.length >= 3))].sort((a, b) => b.length - a.length);
+  // A name with no letter in it (a title that is only "2044", a company "11") is never stripped:
+  // removing it would excuse the same number written as a claim anywhere in the document.
+  const list = [...new Set(names.map((n) => String(n ?? "").trim()).filter((n) => n.length >= 3 && /\p{L}/u.test(n)))].sort((a, b) => b.length - a.length);
   let out = String(text);
   for (const n of list) {
     const re = new RegExp(`(?<![A-Za-z0-9])${escRe(n).replace(/\s+/g, "\\s+")}(?![A-Za-z0-9])`, "gi");
@@ -318,6 +320,13 @@ function selfTest() {
       company: TITLE_COMPANY,
       strip: TITLE_STRIP,
       expectKind: "proper-noun",
+    },
+    {
+      name: "a posting title that is only a year strips nothing, so that year as a claim is STILL caught",
+      doc: "- Ran a 2029 campaign for a local café.",
+      company: TITLE_COMPANY,
+      strip: ["2029"],
+      expectKind: "year",
     },
     {
       name: "an invented single-word employer after a title at a line start is STILL caught",
