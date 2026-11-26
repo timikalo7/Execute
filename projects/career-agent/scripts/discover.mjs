@@ -146,25 +146,53 @@ export function excludeRe(profile) {
   return new RegExp(`\\b(${kept.join("|")})\\b`, "i");
 }
 
+// Core computer-science titles and apprenticeships. A title can name a non-tech field and still be
+// one of these ("Global Markets Intern - Markets Engineering", "Marketing Apprentice"), so a profile
+// with its own field words leaves them out unless the profile asks for them. Tech profiles: unchanged.
+const CS_CORE_RE = /\b(software|developers?|engineer|engineering|quant|quantitative|machine learning|cyber|devops|full[- ]?stack|back[- ]?end|front[- ]?end|programmer|programming)\b/i;
+const APPRENTICE_RE = /\bapprentice(ship)?s?\b/i;
+
+/**
+ * What a profile with its own field words leaves out even when the title names the field. Pure.
+ * null for a tech profile (nothing more is left out). Otherwise { csOk, apprenticeOk, drops(title) }:
+ *   - a CS_CORE_RE title is dropped unless one of the profile's own field words matches CS_CORE_RE;
+ *   - an APPRENTICE_RE title is dropped unless target.roles or target.title_keywords say "apprentice".
+ * Callers keep hand-added jobs/manual.json rows whatever this says.
+ */
+export function fieldNarrow(profile) {
+  const { words } = fieldWords(profile);
+  if (!words) return null;
+  const t = profile?.target || {};
+  const asked = [].concat(Array.isArray(t.roles) ? t.roles : [], Array.isArray(t.title_keywords) ? t.title_keywords : []);
+  const csOk = words.some((w) => CS_CORE_RE.test(w));
+  const apprenticeOk = asked.some((r) => /apprentice/i.test(String(r)));
+  return { csOk, apprenticeOk, drops: (title) => (!csOk && CS_CORE_RE.test(title)) || (!apprenticeOk && APPRENTICE_RE.test(title)) };
+}
+
 /**
  * The same field rule for what the opportunity sources find (job lists, hackathons, events): for a
- * profile with its own field words, a row must name the field in its title. Rows you add yourself in
- * jobs/manual.json always stay. A tech profile gets the very same array back. Pure.
+ * profile with its own field words, a row must name the field in its title and not be one fieldNarrow
+ * drops. Rows you add yourself in jobs/manual.json always stay. A tech profile gets the very same
+ * array back. Pure.
  */
 export function fieldOpportunities(rows, profile) {
   if (!fieldWords(profile).words) return rows;
   const field = fieldWordsRe(profile);
-  return rows.filter((o) => o.source === "manual" || field.test(String(o.title || "")));
+  const { drops } = fieldNarrow(profile);
+  return rows.filter((o) => o.source === "manual" || (field.test(String(o.title || "")) && !drops(String(o.title || ""))));
 }
 
 /**
  * THE BOARD BELONGS TO ONE FIELD. discover merges into jobs/found.json, so rows kept under an earlier
  * field rule stayed on the board after the profile changed: a finance attendee who first ran the
  * example profile still saw its CS rows. found.json records this fingerprint of the field filter
- * (tech or not, plus the field-words regex), and a different one clears the stored rows. Pure.
+ * (tech or not, plus the field-words regex, plus fieldNarrow's two switches for a non-tech profile),
+ * and a different one clears the stored rows. Pure.
  */
 export function fieldFingerprint(profile) {
-  return `${isTechSector(profile) ? "tech" : "non-tech"}|${fieldWordsRe(profile).source}`;
+  const base = `${isTechSector(profile) ? "tech" : "non-tech"}|${fieldWordsRe(profile).source}`;
+  const narrow = fieldNarrow(profile);
+  return narrow ? `${base}|cs:${narrow.csOk ? "kept" : "dropped"}|apprentice:${narrow.apprenticeOk ? "kept" : "dropped"}` : base;
 }
 
 // A board written before fingerprints existed counts as the tech default, which was the only filter
@@ -182,14 +210,19 @@ export function boardForField(stored, fingerprint) {
 // field words only, so a tech profile keeps INTERN_RE exactly.
 const FIELD_INTERN_RE = /\b(vacation scheme)\b/i;
 
-/** The job-board filter main() applies: an internship, not excluded, in the field, in range. Pure. */
+/**
+ * The job-board filter main() applies: an internship, not excluded, in the field, not one fieldNarrow
+ * drops (non-tech only; a manual row is never dropped by it), in range. Pure.
+ */
 export function matchJobs(all, profile) {
   const field = fieldWordsRe(profile);
   const exclude = excludeRe(profile);
+  const narrow = fieldNarrow(profile);
   const intern = fieldWords(profile).words ? (t) => INTERN_RE.test(t) || FIELD_INTERN_RE.test(t) : (t) => INTERN_RE.test(t);
   return all
     .filter((j) => intern(j.title) && !exclude.test(j.title))
     .filter((j) => field.test(j.title))
+    .filter((j) => !narrow || j.source === "manual" || !narrow.drops(j.title))
     .filter((j) => inRange(j.location, profile) || inRange(j.title, profile));
 }
 
@@ -1147,6 +1180,78 @@ async function selfTest() {
   t(`marketing: the phrase matches "Social Media Intern"`, mayaRe.test("Social Media Intern"), String(mayaRe));
   for (const title of ["Media Product Intern", "Data and Analytics Intern - Customer and Digital", "Data Analytics Intern - Media Handling", "Digital Apprentice - Software Development"])
     t(`marketing: no weak word alone matches "${title}"`, !mayaRe.test(title), String(mayaRe));
+
+  // CS CORE AND APPRENTICESHIPS, non-tech only. Every title from that marketing board, through both
+  // paths: an opportunity-list row (fieldOpportunities) and a job-board row (matchJobs, which also
+  // needs an internship word, as before). Hand-added rows always stay.
+  const MAYA_DROPPED = [
+    "Quantitative Analyst Intern - Digital Assets Market Making - High-Frequency Trading",
+    "DeFi Quant Research Intern - Digital Assets Market Making",
+    "Digital & Technology Solutions Degree Apprenticeship",
+    "Digital Apprentice - Software Development",
+    "Digital and Technology Solutions Degree Apprentice - Engineering",
+    "Digital Degree Apprentice - Software Development Pathway",
+    "2027 Summer Internship - Digital (Digital Trust & Cyber Security) - London",
+    "Media Product Intern",
+    "Data and Analytics Intern - Customer and Digital",
+    "Data Analytics Intern - Media Handling",
+  ];
+  const MAYA_KEPT = ["Data Science & Marketing Effectiveness Intern", "Marketing & Operations Analytics Co-op - Strategy & Analytics"];
+  const listed = (title, source = "simplify") => ({ ...inLondon(title), source, kind: "job" });
+  const listKeeps = (p, title, source) => fieldOpportunities([listed(title, source)], p).length === 1;
+  const bothKeep = (p, title) => listKeeps(p, title) && keeps(p, title);
+  const neitherKeeps = (p, title) => !listKeeps(p, title) && !keeps(p, title);
+  for (const title of MAYA_DROPPED) t(`marketing drops "${title}" (list and board)`, neitherKeeps(maya, title), "kept");
+  for (const title of MAYA_KEPT) t(`marketing list keeps "${title}"`, listKeeps(maya, title), "dropped");
+  for (const title of ["Data Science & Marketing Effectiveness Intern", "Social Media Intern"]) t(`marketing board keeps "${title}"`, keeps(maya, title), "dropped");
+  t(`marketing: all ${MAYA_DROPPED.length} dropped titles stay when hand-added (jobs/manual.json)`, MAYA_DROPPED.every((title) => listKeeps(maya, title, "manual")), "dropped");
+
+  // Each rule on its own: profiles whose field words DO match the title, so only that rule can drop it.
+  const own = (title_keywords) => withTarget({ sector: "Marketing", roles: ["Marketing intern"], boost_keywords: [], title_keywords, locations: ["London"] });
+  const CYBER = "2027 Summer Internship - Digital (Digital Trust & Cyber Security) - London";
+  const DTS = "Digital & Technology Solutions Degree Apprenticeship";
+  const APPRENTICE_PLACEMENT = "Marketing Apprentice - Industrial Placement";
+  t(`title_keywords ["digital"]: CS core drops "${CYBER}" (list and board)`, neitherKeeps(own(["digital"]), CYBER), "kept");
+  t(`title_keywords ["digital", "cyber"] keeps it (list and board)`, bothKeep(own(["digital", "cyber"]), CYBER), "dropped");
+  t(`title_keywords ["digital"]: apprenticeships drop "${DTS}"`, !listKeeps(own(["digital"]), DTS), "kept");
+  t(`title_keywords ["digital", "apprenticeship"] keeps it`, listKeeps(own(["digital", "apprenticeship"]), DTS), "dropped");
+  t(`marketing drops "${APPRENTICE_PLACEMENT}" (list and board)`, neitherKeeps(maya, APPRENTICE_PLACEMENT), "kept");
+  const mayaApprentice = { ...maya, target: { ...maya.target, roles: [...maya.target.roles, "Marketing apprentice"] } };
+  t(`a role "Marketing apprentice" keeps it (list and board)`, bothKeep(mayaApprentice, APPRENTICE_PLACEMENT), "dropped");
+  const boostApprentice = { ...maya, target: { ...maya.target, roles: ["Marketing intern"], boost_keywords: ["apprentice"] } };
+  const roleApprentice = { ...maya, target: { ...maya.target, roles: ["Marketing apprentice"], boost_keywords: [] } };
+  t(`boost "apprentice" alone does not ask for apprenticeships; a role does`, !listKeeps(boostApprentice, APPRENTICE_PLACEMENT) && listKeeps(roleApprentice, APPRENTICE_PLACEMENT), "wrong");
+  t(`board: hand-added CS and apprentice titles stay; the same rows not hand-added drop`, matchJobs([{ ...inLondon(APPRENTICE_PLACEMENT), source: "manual" }, { ...inLondon(CYBER), source: "manual" }], own(["marketing", "digital"])).length === 2 && matchJobs([inLondon(APPRENTICE_PLACEMENT), inLondon(CYBER)], own(["marketing", "digital"])).length === 0, "wrong");
+
+  // Finance: the ticket's check.
+  const GMME = "Global Markets Intern - Markets Engineering";
+  for (const title of ["Summer Analyst - Markets", "Audit Intern 2027", "Investment Banking Summer Internship"]) t(`finance keeps "${title}" (list and board)`, bothKeep(finance, title), "dropped");
+  for (const title of ["Software Engineer Intern", GMME]) t(`finance drops "${title}" (list and board)`, neitherKeeps(finance, title), "kept");
+  const financeQuant = { ...finance, target: { ...finance.target, boost_keywords: [...finance.target.boost_keywords, "quant"] } };
+  for (const title of [GMME, "DeFi Quant Research Intern - Digital Assets Market Making"])
+    t(`finance + own field word "quant" keeps "${title}" (list and board)`, bothKeep(financeQuant, title), "dropped");
+  t(`finance: a hand-added "${GMME}" stays on the board`, matchJobs([{ ...inLondon(GMME), source: "manual" }], finance).length === 1, "dropped");
+
+  // Tech: unchanged, on these very titles too.
+  t("a tech profile gets no extra rule (fieldNarrow is null)", fieldNarrow(ex) === null, JSON.stringify(fieldNarrow(ex)));
+  const NEW_TITLES = [...MAYA_DROPPED, ...MAYA_KEPT, GMME, APPRENTICE_PLACEMENT, "Social Media Intern", "Software Engineer Intern"];
+  const newRows = NEW_TITLES.flatMap((title) => [inLondon(title), listed(title), { ...inLondon(title), location: "Lisbon, Portugal" }]);
+  const oldNew = newRows
+    .filter((j) => INTERN_RE.test(j.title) && !EXCLUDE_RE.test(j.title))
+    .filter((j) => TECH_RE.test(j.title))
+    .filter((j) => inRange(j.location, ex) || inRange(j.title, ex));
+  t(`the example profile keeps exactly today's titles from these rows (${oldNew.length} of ${newRows.length})`, oldNew.length > 0 && JSON.stringify(matchJobs(newRows, ex)) === JSON.stringify(oldNew), `${matchJobs(newRows, ex).length} vs ${oldNew.length}`);
+  t(`tech example still keeps "DeFi Quant Research Intern - Digital Assets Market Making" and "Software Engineer Intern"`, keeps(ex, "DeFi Quant Research Intern - Digital Assets Market Making") && keeps(ex, "Software Engineer Intern"), "dropped");
+  const listedRows = NEW_TITLES.map((title) => listed(title));
+  t("a tech profile's opportunity rows for these titles are the very same array", fieldOpportunities(listedRows, ex) === listedRows, "filtered");
+
+  // The board is cleared once: a finance board stored before these rules has the same field words.
+  const mayaFp = fieldFingerprint(maya);
+  t(`a non-tech fingerprint names both switches: "${mayaFp}"`, mayaFp === `non-tech|${fieldWordsRe(maya).source}|cs:dropped|apprentice:dropped`, mayaFp);
+  const storedBefore = { field_fingerprint: `non-tech|${fieldWordsRe(finance).source}`, jobs: [{ url: "https://example.com/gmme", title: GMME }] };
+  t("a finance board stored before these rules is cleared", boardForField(storedBefore, fieldFingerprint(finance)).cleared === true, fieldFingerprint(finance));
+  t("the same words with apprenticeships asked for give another fingerprint", fieldWords(boostApprentice).words.join() === fieldWords(roleApprentice).words.join() && fieldFingerprint(boostApprentice) !== fieldFingerprint(roleApprentice), fieldFingerprint(roleApprentice));
+  t("financeQuant's fingerprint says CS titles are kept", fieldFingerprint(financeQuant).endsWith("|cs:kept|apprentice:dropped"), fieldFingerprint(financeQuant));
 
   // WHICH EMPLOYER LIST: jobs/sources.json when it exists, else the shipped example for the sector.
   const none = { root: path.join(PROJECT_ROOT, "no-such-dir"), exists: () => false };
