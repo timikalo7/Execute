@@ -60,7 +60,8 @@ Read `projects/career-agent/CLAUDE.md` first. Work from inside `projects/career-
    `npm run setup < /dev/null` once, which writes that empty skeleton, lists what is missing and
    exits (exit code 1 is expected there). Then fill in ONLY
    what the CV states: identity, education, each job/project/leadership entry with its dates, each
-   bullet as an achievement `claim` (the CV's own words), skills grouped as the CV groups them,
+   bullet as an achievement `claim` (the CV's own words), skills grouped as the CV groups them (the
+   skeleton has no skill groups; one plain list under the CV's own heading, e.g. `Skills`, is fine),
    achievements and training. Leave everything else empty. Dates as `YYYY-MM` (or `present`).
    If the profile already exists, do not overwrite answers in it — only fill empty fields.
 
@@ -76,12 +77,21 @@ Read `projects/career-agent/CLAUDE.md` first. Work from inside `projects/career-
    Ask especially for the **numbers, outcomes and dates behind each CV bullet** — users, time saved,
    percentages, money, team size, how long — because the grounding check only lets a generated CV
    state numbers that are in the profile, and a bullet with no number can never be made concrete.
-   Also ask for everything a CV never says: target roles, countries they can work in, cities,
+   Also ask for everything a CV never says: the one-line headline under their name
+   (`identity.headline`, required), target roles, countries they can work in, cities,
    intake season and year, graduation year and year of study, subject, work authorisation, known
    gaps, an offer they already hold (or none), home city, keywords that matter to them, referees
-   (and whether each has agreed), availability and other logistics, a voice sample, and their
-   hardest technical challenge in their own words.
+   (and whether each has agreed), availability and other logistics, a voice sample, and the
+   hardest challenge they solved (technical or not), in their own words.
+   **The headline.** If the CV has a summary line, use its words. If it has none, offer ONE
+   suggested line built only from facts the CV states (for example their subject, year of study and
+   a role they hold), say plainly that it is your suggestion, and save it only if the user accepts it
+   or edits it. If they say no, ask for their own line, or leave it empty.
    Accept "skip" and move on; skipped fields stay empty and profile:check keeps reporting them.
+   If a REQUIRED field is still empty at the end because they skipped it, end by telling them in
+   plain words which field is still missing and why the tool needs it (the `why` from
+   profile:check), and that they can type it into `profile/master-profile.json` when they have it —
+   do not send them back to this command or to `npm run setup` for it.
    Re-run `npm run profile:check` after every few answers and show the user what is left.
 
 5. **Never invent or embellish** while doing any of this. If an answer sounds stronger than the
@@ -93,10 +103,10 @@ Read `projects/career-agent/CLAUDE.md` first. Work from inside `projects/career-
      `node --input-type=module -e "import { writePack } from './scripts/tailor.mjs'; import { loadProfile, readJson } from './scripts/profile.mjs'; import { assess } from './scripts/eligibility.mjs'; const p = loadProfile(); const item = readJson('scripts/fixtures/example-posting.json'); item.eligibility = assess(item, { profile: p }); writePack(p, item, 'output/sample-pack');"`
      then `npm run ground -- output/sample-pack`. A FAIL names the exact claim, number or year
      that is not in the profile: fix the PROFILE (with the user's true answer) or remove the claim —
-     never edit the check. Read what it flags first: a year or name that comes only from the
-     posting's own title (the `# Gaps and fit — …` title of `gap.md`, or the `Ordered for: …` note
-     at the end of `cv.md`) is the posting's name, not a claim about the user — say so, and never
-     add it to their profile unless they took part in it.
+     never edit the check. Read what it flags first. Ground removes the posting's own title and
+     company before it checks, so a year in the title (for example "2027 Apprentice") is not
+     flagged. If a year or name is still flagged, find the line it is in and tell the user. Never
+     add the posting's name to their profile unless they took part in it.
    - Tell the user the result in plain words, then point them at the daily loop in
      `projects/career-agent/README.md` (discover → tailor → ground → pdf → apply).
 
