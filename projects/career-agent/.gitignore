@@ -2,6 +2,9 @@
 # something generated from them. None of it belongs in a git repository — and in a public fork with
 # a scheduled workflow it would be published to the internet.
 profile/master-profile.json
+# Any other profile copy too (a renamed test profile, a backup): only the fictional example is tracked.
+profile/*.json
+!profile/master-profile.example.json
 profile/cv/*
 !profile/cv/README.md
 output/
