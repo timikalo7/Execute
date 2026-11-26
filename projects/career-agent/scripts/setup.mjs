@@ -445,6 +445,19 @@ function selfTest() {
     const c = run(skipped, ["2032"]);
     check("resume: a second run asks exactly one question", questions(c.stdout) === 1, `asked ${questions(c.stdout)}\n${c.stdout.slice(0, 800)}`);
     check("resume: ...and the profile now passes", c.status === 0 && checkProfile(readJson(skipped)).missing.length === 0, `exit ${c.status}`);
+    // The quiz asks what profile:check lists, so a GitHub link is asked of a tech profile only.
+    const withoutGithub = (name, target) => {
+      const p = readJson(full);
+      delete p.identity.links.github;
+      Object.assign(p.target, target);
+      const f = path.join(tmp, `${name}.json`);
+      fs.writeFileSync(f, JSON.stringify(p, null, 2));
+      return run(f, ["skip"]);
+    };
+    const ghTech = withoutGithub("tech-no-gh", {});
+    check("resume: a tech profile with no GitHub link is asked for one", questions(ghTech.stdout) === 1 && /\[1\] identity\.links\.github/.test(ghTech.stdout), ghTech.stdout.slice(0, 600));
+    const ghMkt = withoutGithub("marketing-no-gh", { sector: "Marketing", roles: ["Marketing intern", "Brand placement"] });
+    check("resume: a marketing profile with no GitHub link is not asked for one", questions(ghMkt.stdout) === 0 && !/identity\.links\.github/.test(ghMkt.stdout) && ghMkt.status === 0, `exit ${ghMkt.status}\n${ghMkt.stdout.slice(0, 600)}`);
 
     // 4. Input that stops halfway still leaves every answer given so far on disk.
     const half = path.join(tmp, "half.json");

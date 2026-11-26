@@ -19,7 +19,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { EXAMPLE_PROFILE, loadExample, profilePath, readJson } from "./profile.mjs";
+import { EXAMPLE_PROFILE, isTechSector, loadExample, profilePath, readJson } from "./profile.mjs";
 
 /** Read a dotted path with [n] indexes: get(p, "education[0].end"). */
 export function get(obj, p) {
@@ -67,6 +67,8 @@ export function isDate(v, allowPresent = false) {
  *   kind    text | number | date (YYYY-MM; `allowPresent` also accepts "present") | list
  *           (comma-separated) | lines (one item per answer) | pair (answer + detail) | experience |
  *           projects | leadership | skills | offer | referees
+ *   when    optional: the field applies only to a profile this returns true for. Elsewhere it is
+ *           neither reported nor asked (a GitHub link is asked of a tech profile only — isTechSector)
  */
 export const FIELDS = [
   // ---- identity
@@ -98,7 +100,7 @@ export const FIELDS = [
   { path: "gaps_known.items", level: "required", kind: "lines", ask: "Things postings often ask for that you genuinely do NOT have yet", why: "Every gap analysis lists them (tailor.mjs) and answers.mjs offers them for the 'weakness' question. Honest gaps make the rest believable." },
   // ---- recommended
   { path: "identity.links.linkedin", level: "recommended", kind: "text", ask: "Your LinkedIn URL", why: "The LinkedIn box on forms (apply.mjs)." },
-  { path: "identity.links.github", level: "recommended", kind: "text", ask: "Your GitHub URL", why: "CV contact line and the GitHub box on forms." },
+  { path: "identity.links.github", level: "recommended", kind: "text", when: isTechSector, ask: "Your GitHub URL", why: "CV contact line and the GitHub box on forms." },
   { path: "identity.links.portfolio", level: "recommended", kind: "text", ask: "Your portfolio or personal site URL", why: "CV contact line and the website box on forms." },
   { path: "identity.address.line1", level: "recommended", kind: "text", ask: "Address line 1 (only for filling forms; skip if you would rather type it yourself)", why: "Address boxes on forms (apply.mjs). Never printed on the CV." },
   { path: "identity.address.city", level: "recommended", kind: "text", ask: "Address: town or city", why: "The town/city box on application forms (apply.mjs, answers.mjs)." },
@@ -110,7 +112,7 @@ export const FIELDS = [
   { path: "target.bar_to_beat", level: "recommended", kind: "offer", ask: "Do you already hold an offer? Type the employer's name, or 'none'", why: "bar.mjs ranks every posting against it: the same kind of employer is a sideways move, a stronger one, your home city or more pay is an upgrade." },
   { path: "education[0].relevant_modules", level: "recommended", kind: "list", ask: "Relevant modules or classes (comma-separated)", why: "The 'Relevant classes' line on the CV." },
   { path: "leadership", level: "recommended", kind: "leadership", ask: "Leading, teaching or organising something", why: "The teamwork answer (answers.mjs) and the Leadership section of the CV." },
-  { path: "stories.hardest_challenge", level: "recommended", kind: "text", ask: "Your hardest technical challenge, in your own words, on one line: what went wrong, how you found out, what fixed it", why: "Used verbatim for the 'hardest technical challenge' question (answers.mjs, apply.mjs). Without it, that answer is left for you." },
+  { path: "stories.hardest_challenge", level: "recommended", kind: "text", ask: "The hardest challenge you solved (technical or not), in your own words, on one line: what went wrong, how you found out, what fixed it", why: "Used verbatim when a form asks for your hardest challenge (many call it the 'hardest technical challenge' question; answers.mjs, apply.mjs). Without it, that answer is left for you." },
   { path: "voice.samples", level: "recommended", kind: "lines", ask: "Paste a paragraph you wrote yourself (one line), so drafts can sound like you", why: "/career-onboard and any drafting you ask Claude for use it to write in your voice." },
   { path: "referees.items", level: "recommended", kind: "referees", ask: "People who have agreed to give you a reference", why: "Referee tables on every answer sheet (answers.mjs). Consent must start with 'given' or the tool says not to list them." },
   { path: "logistics.availability", level: "recommended", kind: "text", ask: "Your availability (e.g. evenings, weekends and university holidays)", why: "Availability questions on shift and agency forms (answers.mjs)." },
@@ -122,6 +124,9 @@ export const FIELDS = [
 
 /** Is this field answered in the profile? */
 export function answered(profile, f) {
+  // A field that does not apply to this profile has nothing to answer, so it is neither reported
+  // here nor asked by setup.mjs (which asks exactly the fields this calls unanswered).
+  if (f.when && !f.when(profile)) return true;
   const v = get(profile, f.path);
   switch (f.kind) {
     case "text": return nonEmpty(v);
@@ -273,6 +278,22 @@ function selfTest() {
   goodDates.education[0].end = "present";
   check("a YYYY-MM education start and an end of 'present' are accepted", checkProfile(goodDates).missing.length === 0, JSON.stringify(checkProfile(goodDates).missing));
 
+  // GitHub is recommended to a tech profile only (isTechSector). A marketing student was told to add
+  // one. Both ways, on the same example with the GitHub link removed.
+  const noGithub = (target) => {
+    const p = clone();
+    delete p.identity.links.github;
+    Object.assign(p.target, target);
+    return p;
+  };
+  const marketingNoGh = noGithub({ sector: "Marketing", roles: ["Marketing intern", "Brand placement"] });
+  const listsGithub = (p) => checkProfile(p).weak.some((w) => w.path === "identity.links.github");
+  check("a marketing profile with no GitHub link is not told to add one", !listsGithub(marketingNoGh) && !/github/i.test(report(checkProfile(marketingNoGh))), report(checkProfile(marketingNoGh)));
+  check("...nor is one with an empty sector and only non-tech roles", !listsGithub(noGithub({ sector: "", roles: ["Marketing intern"] })), "listed");
+  check("the tech example with no GitHub link is still told to add one", listsGithub(noGithub({})), JSON.stringify(checkProfile(noGithub({})).weak.map((w) => w.path)));
+  check("...and so is a profile whose field is not known yet (no sector, no roles)", listsGithub(noGithub({ sector: "", roles: [] })), "not listed");
+  check("the hardest-challenge question asks for one 'technical or not'", /hardest challenge you solved \(technical or not\)/.test(FIELDS.find((f) => f.path === "stories.hardest_challenge").ask), FIELDS.find((f) => f.path === "stories.hardest_challenge").ask);
+
   // The CLI, both ways: no profile file at all → exit 1 naming fields; the example → exit 0.
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "profilecheck-"));
   const cli = (env) => spawnSync(process.execPath, [fileURLToPath(import.meta.url)], { env: { ...process.env, ...env }, encoding: "utf8" });
@@ -294,6 +315,16 @@ function selfTest() {
   check("CLI: ...naming education[0].start and saying it is not YYYY-MM", /✗ education\[0\]\.start\n\s+why: "sometime in autumn" is not YYYY-MM/.test(freeText.stdout), freeText.stdout.slice(0, 600));
   const validStart = withStart("2026-09");
   check("CLI: the same profile with education[0].start = \"2026-09\" → exit 0", validStart.status === 0, `exit ${validStart.status}\n${validStart.stdout}`);
+  // The CLI prints the GitHub line for the tech example without a link, and not for marketing.
+  const cliFor = (p, name) => {
+    const f = path.join(tmp, `${name}.json`);
+    fs.writeFileSync(f, JSON.stringify(p, null, 2));
+    return cli({ CAREER_AGENT_PROFILE: f });
+  };
+  const ghTech = cliFor(noGithub({}), "tech-no-gh");
+  const ghMkt = cliFor(marketingNoGh, "marketing-no-gh");
+  check("CLI: the tech example without GitHub → a \"! identity.links.github\" line", ghTech.status === 0 && /! identity\.links\.github/.test(ghTech.stdout), ghTech.stdout);
+  check("CLI: a marketing profile without GitHub → no GitHub line", ghMkt.status === 0 && !/github/i.test(ghMkt.stdout), ghMkt.stdout);
   fs.rmSync(tmp, { recursive: true, force: true });
 
   console.log(failed ? `\nself-test FAILED (${failed})` : "\nself-test passed — the check fails on every kind of incomplete profile and passes on a complete one");
