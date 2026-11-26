@@ -40,7 +40,7 @@ import path from "node:path";
 import { assess } from "./eligibility.mjs";
 import { rank } from "./bar.mjs";
 import { decisions, isDecided } from "./decisions.mjs";
-import { barConfig, boostKeywords, fromHeader, homeRegex, inRange, intake, intakeLabel, isTechSector, loadExample, loadProfile, PROJECT_ROOT, SOURCES_EXAMPLE, SOURCES_GENERAL_EXAMPLE, sourcesFileFor, targetCountries, termsRegex, userAgent } from "./profile.mjs";
+import { barConfig, boostKeywords, fromHeader, homeRegex, inRange, intake, intakeLabel, isTechSector, loadExample, loadProfile, PROJECT_ROOT, SOURCES_EXAMPLE, SOURCES_GENERAL_EXAMPLE, sourcesFileFor, targetCountries, TECH_RE, termsRegex, userAgent } from "./profile.mjs";
 
 const ROOT = process.cwd();
 const SOURCES = path.join(ROOT, "jobs", "sources.json");
@@ -55,7 +55,7 @@ const ONLY_NEW = args.includes("--new");
 // your profile says you can work. Each rule is separate so a miss can be diagnosed rather than
 // guessed at. The field comes from the profile (fieldWords below); TECH_RE is the default.
 const INTERN_RE = /\b(intern|internship|placement|industrial year|summer analyst|work experience|insight|spring week|graduate scheme)\b/i;
-const TECH_RE = /\b(software|engineer|engineering|developer|technology|data|machine learning|ml|ai|research|quant|infrastructure|platform|backend|full[- ]?stack|security)\b/i;
+// TECH_RE lives in profile.mjs: isTechSector reads it too (an empty sector with only non-tech roles).
 // Excludes things that match "intern" but are not internships.
 const EXCLUDE_RE = /\b(internal|international(?! )|internship program manager|recruiter|sales|marketing intern|hr intern)\b/i;
 // The same terms as EXCLUDE_RE, each with the field word(s) that switch it off for a profile whose
@@ -131,6 +131,27 @@ export function fieldOpportunities(rows, profile) {
   if (!fieldWords(profile).words) return rows;
   const field = fieldWordsRe(profile);
   return rows.filter((o) => o.source === "manual" || field.test(String(o.title || "")));
+}
+
+/**
+ * THE BOARD BELONGS TO ONE FIELD. discover merges into jobs/found.json, so rows kept under an earlier
+ * field rule stayed on the board after the profile changed: a finance attendee who first ran the
+ * example profile still saw its CS rows. found.json records this fingerprint of the field filter
+ * (tech or not, plus the field-words regex), and a different one clears the stored rows. Pure.
+ */
+export function fieldFingerprint(profile) {
+  return `${isTechSector(profile) ? "tech" : "non-tech"}|${fieldWordsRe(profile).source}`;
+}
+
+// A board written before fingerprints existed counts as the tech default, which was the only filter
+// for most of this tool's life: a tech board keeps today's merge, any other field starts clean.
+export const LEGACY_FINGERPRINT = fieldFingerprint({});
+
+/** The stored rows discover may merge into: all of them for the same field, none after a change. Pure. */
+export function boardForField(stored, fingerprint) {
+  const jobs = Array.isArray(stored?.jobs) ? stored.jobs : [];
+  if ((stored?.field_fingerprint ?? LEGACY_FINGERPRINT) === fingerprint) return { jobs, cleared: false };
+  return { jobs: [], cleared: jobs.length > 0 };
 }
 
 // Law firms call their summer internship a "vacation scheme". Accepted for a profile with its own
@@ -637,7 +658,13 @@ async function main() {
   if (sourcesFile !== SOURCES)
     console.error(`  using ${path.relative(ROOT, sourcesFile)} — copy it to jobs/sources.json and edit it to choose your own employers`);
   const sources = JSON.parse(fs.readFileSync(sourcesFile, "utf8"));
-  const prev = fs.existsSync(FOUND) ? JSON.parse(fs.readFileSync(FOUND, "utf8")) : { jobs: [] };
+  const stored = fs.existsSync(FOUND) ? JSON.parse(fs.readFileSync(FOUND, "utf8")) : { jobs: [] };
+  // A board built for another field is not merged into: its rows passed a different filter.
+  const fingerprint = fieldFingerprint(profile);
+  const board = boardForField(stored, fingerprint);
+  if (board.cleared)
+    console.error(`  your field changed since the last run — previous board cleared (${stored.jobs.length} row(s) removed from jobs/found.json)`);
+  const prev = { ...stored, jobs: board.jobs };
   const seen = new Set(prev.jobs.map((j) => j.url));
 
   const all = [];
@@ -814,7 +841,7 @@ async function main() {
     if (changed) console.error(`\n${changed} stored verdict(s) changed when the current rules were re-run over the whole board.`);
     if (rebarred) console.error(`${rebarred} row(s) changed tier against your bar.`);
     fs.mkdirSync(path.dirname(FOUND), { recursive: true });
-    fs.writeFileSync(FOUND, JSON.stringify({ updated: new Date().toISOString(), jobs: merged }, null, 2) + "\n");
+    fs.writeFileSync(FOUND, JSON.stringify({ updated: new Date().toISOString(), field_fingerprint: fingerprint, jobs: merged }, null, 2) + "\n");
     console.error(`\nwrote ${FOUND} (${merged.length} total, ${fresh.length} added)`);
   }
   // Fail loudly if EVERY source broke — that means the run produced nothing and should not look calm.
@@ -1067,6 +1094,38 @@ async function selfTest() {
   t(`header for the example is unchanged: "${intakeLabel(ex)}"`, intakeLabel(ex) === `Summer ${ex.target.timing.intake_year}`, intakeLabel(ex));
   t(`every tier2 row has name, https url, a dated measurement and handling (${t2.length})`,
     t2.length > 0 && t2.every((r) => r.name && /^https:\/\//.test(r.url) && Object.keys(r).some((k) => /^measured_\d{4}_\d{2}_\d{2}$/.test(k)) && r.handling), "malformed");
+
+  // FIX (a): AN EMPTY SECTOR. The owner's finance role-play left target.sector blank; isTechSector
+  // read blank as tech, so TECH_RE filtered the board. Now the roles decide. The example stays tech.
+  const financeBlank = withTarget({ sector: "", roles: finance.target.roles, boost_keywords: finance.target.boost_keywords, locations: finance.target.locations });
+  t(`empty sector + roles ${JSON.stringify(financeBlank.target.roles)} is not tech`, isTechSector(financeBlank) === false, "read as tech");
+  t("empty sector + finance roles: finance field words, not TECH_RE", fieldWordsRe(financeBlank) !== TECH_RE && fieldWords(financeBlank).words.join(",") === fieldWords(finance).words.join(","), String(fieldWordsRe(financeBlank)));
+  t(`empty sector + finance roles keeps "Audit Intern 2027" and drops "Software Engineer Intern"`, keeps(financeBlank, "Audit Intern 2027") && !keeps(financeBlank, "Software Engineer Intern"), "wrong");
+  t("empty sector + finance roles uses sources.general.example.json", sourcesFileFor(financeBlank, none) === SOURCES_GENERAL_EXAMPLE, sourcesFileFor(financeBlank, none));
+  t("missing sector (not just empty) + finance roles is not tech", isTechSector(withTarget({ sector: undefined, roles: finance.target.roles })) === false, "read as tech");
+  t("empty sector + no roles keeps the tech default", isTechSector(withTarget({ sector: "", roles: [] })) && fieldWordsRe(withTarget({ sector: "", roles: [] })) === TECH_RE, "not tech");
+  t("empty sector + one tech role among finance roles stays tech", isTechSector(withTarget({ sector: "", roles: [...finance.target.roles, "Data analyst intern"] })), "not tech");
+  t("the example profile is still tech, with TECH_RE", isTechSector(ex) && fieldWordsRe(ex) === TECH_RE, "not tech");
+  t("the example's roles with an empty sector are still tech", isTechSector(withTarget({ sector: "" })) && fieldWordsRe(withTarget({ sector: "" })) === TECH_RE, "not tech");
+
+  // FIX (b): A STALE BOARD. found.json records the field filter's fingerprint; a different one clears
+  // the stored rows, the same one keeps today's merge. A board with no fingerprint counts as tech.
+  const fpTech = fieldFingerprint(ex);
+  const fpFin = fieldFingerprint(financeBlank);
+  const oldRows = [{ url: "https://example.com/swe", title: "Software Engineer Intern" }, { url: "https://example.com/data", title: "Data Engineering Intern" }];
+  t("the example's fingerprint is the legacy (tech) fingerprint", fpTech === LEGACY_FINGERPRINT && fpTech.startsWith("tech|"), fpTech);
+  t("finance's fingerprint differs from the example's", fpFin !== fpTech && fpFin.startsWith("non-tech|"), fpFin);
+  t("fingerprint follows title_keywords too", fieldFingerprint(financeOwn) !== fpFin, fieldFingerprint(financeOwn));
+  const changedBoard = boardForField({ field_fingerprint: fpTech, jobs: oldRows }, fpFin);
+  t("a changed fingerprint clears the stored rows", changedBoard.cleared === true && changedBoard.jobs.length === 0, JSON.stringify(changedBoard));
+  const sameBoard = boardForField({ field_fingerprint: fpFin, jobs: oldRows }, fpFin);
+  t("the same fingerprint keeps every stored row (today's merge)", sameBoard.cleared === false && sameBoard.jobs === oldRows, JSON.stringify(sameBoard));
+  t("a board with no fingerprint + the tech example keeps its rows", boardForField({ jobs: oldRows }, fpTech).jobs === oldRows, "cleared");
+  t("a board with no fingerprint + finance is cleared", boardForField({ jobs: oldRows }, fpFin).cleared === true, "kept");
+  t("no stored rows: nothing cleared, nothing said", boardForField({ jobs: [] }, fpFin).cleared === false && boardForField(undefined, fpFin).jobs.length === 0, "said");
+  t("main() checks the board with boardForField and prints the line", /boardForField\(stored, fingerprint\)/.test(mainSrc) && mainSrc.includes("your field changed since the last run — previous board cleared"), "not wired");
+  t("main() merges into the checked board, not the stored one", /const prev = \{ \.\.\.stored, jobs: board\.jobs \}/.test(mainSrc) && /const merged = \[\.\.\.prev\.jobs\]/.test(mainSrc), "not wired");
+  t("main() writes the fingerprint into found.json", /field_fingerprint: fingerprint/.test(mainSrc), "not wired");
 
   console.log(bad ? `\nself-test FAILED (${bad})` : "\nself-test passed — Junction parser accepts open events and rejects closed ones; scoring and filtering follow the profile");
   process.exit(bad ? 1 : 0);

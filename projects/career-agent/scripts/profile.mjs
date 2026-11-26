@@ -121,10 +121,21 @@ export function inRange(location, p) {
 // A sector that names tech. "IT" must be a whole word, so "Audit" is not read as IT.
 const TECH_SECTOR_RE = /tech|software|computing|computer|data|engineering|\bIT\b/i;
 
-/** True for a tech profile: no target.sector, or one that names tech. discover keeps TECH_RE for it. */
+/** The tech job-title words: discover's field rule for a tech profile, and the test for tech roles. */
+export const TECH_RE = /\b(software|engineer|engineering|developer|technology|data|machine learning|ml|ai|research|quant|infrastructure|platform|backend|full[- ]?stack|security)\b/i;
+
+/**
+ * True for a tech profile. discover keeps TECH_RE for it.
+ *
+ *   - target.sector set: it names tech (TECH_SECTOR_RE).
+ *   - target.sector empty: tech, unless target.roles exist and none of them is a tech role (TECH_RE).
+ *     A finance attendee who left the sector blank was once given the CS default.
+ */
 export function isTechSector(p) {
   const sector = String(p?.target?.sector || "").trim();
-  return !sector || TECH_SECTOR_RE.test(sector);
+  if (sector) return TECH_SECTOR_RE.test(sector);
+  const roles = (Array.isArray(p?.target?.roles) ? p.target.roles : []).map((r) => String(r).trim()).filter(Boolean);
+  return !roles.length || roles.some((r) => TECH_RE.test(r));
 }
 
 export const SOURCES_EXAMPLE = path.join(PROJECT_ROOT, "config", "sources.example.json");
