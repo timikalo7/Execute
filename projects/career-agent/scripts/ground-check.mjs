@@ -27,7 +27,10 @@
  */
 
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { loadProfile as loadUserProfile } from "./profile.mjs";
 
 // Words that look like organisations/technologies but are ordinary English, so they must not be
@@ -80,7 +83,34 @@ function profileText(profile) {
   return out;
 }
 
-export function check(docText, profile, { company = "" } = {}) {
+const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * THE POSTING'S OWN NAME IS NOT A CLAIM. Every pack quotes the title and company it was written for
+ * (the `# Gaps and fit — …` title, the `Ordered for: …` note, "I want to work on …"), and a title such
+ * as "2027 Apprentice - Human Insight Social Research - London" made every one of those lines fail
+ * with `year "2027"`. So every exact occurrence of the title and of the company is removed before the
+ * claims are read, case-insensitively. Only the quoted name goes: the same year anywhere else in the
+ * document is still a claim and still checked, and the self-test proves it in both directions.
+ *
+ * Each occurrence becomes the lower-case word "posting", never nothing. Deleting it outright would
+ * make the word after a title at the start of a line read as a line start, and a capitalised word at
+ * a line start is excused as ordinary prose — an invented employer right after the title would then
+ * pass. Longest name first, so a company named inside the title does not break the title's match.
+ */
+export function stripTarget(text, names = []) {
+  const list = [...new Set(names.map((n) => String(n ?? "").trim()).filter((n) => n.length >= 3))].sort((a, b) => b.length - a.length);
+  let out = String(text);
+  for (const n of list) {
+    const re = new RegExp(`(?<![A-Za-z0-9])${escRe(n).replace(/\s+/g, "\\s+")}(?![A-Za-z0-9])`, "gi");
+    out = out.replace(re, " posting ");
+  }
+  return out;
+}
+
+export function check(docText, profile, { company = "", strip = [] } = {}) {
+  // The posting's own title and company, removed before any claim is read (stripTarget above).
+  docText = stripTarget(docText, strip);
   const hay = profileText(profile).join(" \n ");
   const hayNorm = norm(hay);
   const hayWords = new Set(hay.split(/[^A-Za-z0-9+#.]+/).filter(Boolean).map(norm));
@@ -173,6 +203,12 @@ function selfTest() {
       },
     ],
   };
+  // A posting whose own title holds a year, laid out the way tailor.mjs quotes it.
+  const TITLE = "2029 Apprentice - Human Insight Social Research - London";
+  const TITLE_CO = "Example Research Co";
+  const TITLE_COMPANY = `${TITLE_CO} ${TITLE} London, GB`; // what main() allows: company, title, location
+  const TITLE_STRIP = [TITLE, TITLE_CO];
+  const TITLE_DOC = `# Gaps and fit — ${TITLE} at ${TITLE_CO}\n\nStudying at the University of Exampleton.\n\n*Ordered for: ${TITLE} at ${TITLE_CO}.*`;
   const cases = [
     {
       name: "grounded document passes",
@@ -246,11 +282,55 @@ function selfTest() {
       company: "Example Hackathon Example Hackathon Houston, Texas",
       expectKind: "proper-noun",
     },
+    // The posting's own title, both ways. 2029 is in no string of the fixture profile, so the first
+    // row proves the year really is flagged without the title removed — the rows after it are not
+    // passing because the year happens to be in the profile.
+    {
+      name: "a year inside the posting's own title IS flagged when the title is not removed",
+      doc: TITLE_DOC,
+      company: TITLE_COMPANY,
+      expectKind: "year",
+    },
+    {
+      name: "a year that appears only inside the posting's own title is not a claim",
+      doc: TITLE_DOC,
+      company: TITLE_COMPANY,
+      strip: TITLE_STRIP,
+      expect: 0,
+    },
+    {
+      name: "...matched case-insensitively",
+      doc: TITLE_DOC.replaceAll(TITLE, TITLE.toUpperCase()),
+      company: TITLE_COMPANY,
+      strip: TITLE_STRIP,
+      expect: 0,
+    },
+    {
+      name: "the same year as a claim in a CV line is STILL caught",
+      doc: `${TITLE_DOC}\n- Ran a 2029 campaign for a local café.`,
+      company: TITLE_COMPANY,
+      strip: TITLE_STRIP,
+      expectKind: "year",
+    },
+    {
+      name: "an invented employer next to the posting's title is STILL caught",
+      doc: `*Ordered for: ${TITLE} at ${TITLE_CO}.* Previously an analyst at Goldman Sachs.`,
+      company: TITLE_COMPANY,
+      strip: TITLE_STRIP,
+      expectKind: "proper-noun",
+    },
+    {
+      name: "an invented single-word employer after a title at a line start is STILL caught",
+      doc: `Applied:\n${TITLE} Deloitte`,
+      company: TITLE_COMPANY,
+      strip: TITLE_STRIP,
+      expectKind: "proper-noun",
+    },
   ];
 
   let failed = 0;
   for (const c of cases) {
-    const f = check(c.doc, fixture, { company: c.company || "" });
+    const f = check(c.doc, fixture, { company: c.company || "", strip: c.strip || [] });
     if (c.expect === 0) {
       const ok = f.length === 0;
       console.log(`${ok ? "PASS" : "FAIL"}  ${c.name}${ok ? "" : " → " + JSON.stringify(f)}`);
@@ -260,6 +340,33 @@ function selfTest() {
       console.log(`${ok ? "PASS" : "FAIL"}  ${c.name} (expected a ${c.expectKind} finding, got ${f.length})`);
       if (!ok) failed++;
     }
+  }
+
+  // The same rule through the real command, on a pack folder: the title must be read from meta.json.
+  // A check() that can strip the title, but a main() that never passes it, fails here.
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "ground-selftest-"));
+  try {
+    const profileFile = path.join(tmp, "profile.json");
+    fs.writeFileSync(profileFile, JSON.stringify(fixture));
+    const pack = path.join(tmp, "pack");
+    fs.mkdirSync(pack);
+    fs.writeFileSync(path.join(pack, "meta.json"), JSON.stringify({ company: TITLE_CO, title: TITLE, location: "London, GB", posting_terms: [] }));
+    fs.writeFileSync(path.join(pack, "gap.md"), `# Gaps and fit — ${TITLE} at ${TITLE_CO}\n\nStudying at the University of Exampleton.\n`);
+    const cv = `# Test Person\n\n## Education\n\n**University of Exampleton** · Sep 2027 – Jun 2031\n\n---\n\n*Ordered for: ${TITLE} at ${TITLE_CO}. Every line above appears in the master profile.*\n`;
+    fs.writeFileSync(path.join(pack, "cv.md"), cv);
+    const ground = () =>
+      spawnSync(process.execPath, [fileURLToPath(import.meta.url), pack], { cwd: tmp, env: { ...process.env, CAREER_AGENT_PROFILE: profileFile }, encoding: "utf8" });
+    const row = (name, ok, detail) => {
+      console.log(`${ok ? "PASS" : "FAIL"}  ${name}${ok ? "" : " → " + detail}`);
+      if (!ok) failed++;
+    };
+    const a = ground();
+    row("CLI: a pack whose posting title holds a year passes (title read from meta.json)", a.status === 0 && /RESULT: pass/.test(a.stdout), `exit ${a.status}\n${a.stdout}`);
+    fs.writeFileSync(path.join(pack, "cv.md"), cv.replace("## Education", "## Experience\n\n- Ran a 2029 campaign for a local café.\n\n## Education"));
+    const b = ground();
+    row("CLI: ...and the same year as a CV claim fails it", b.status === 1 && /cv\.md: 1 ungrounded claim/.test(b.stdout) && /year\s+"2029"/.test(b.stdout), `exit ${b.status}\n${b.stdout}`);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
   }
   console.log(failed ? `\nself-test FAILED (${failed})` : "\nself-test passed — the check fails on invented claims and passes on grounded ones");
   process.exit(failed ? 1 : 0);
@@ -392,6 +499,9 @@ function main() {
     if (declared.length) console.log(`\n${f}: allowing ${declared.length} employer term(s) declared in the sheet — ${declared.join(", ")}`);
     const findings = check(body, profile, {
       company: isAnswers ? `${company} ${postingTerms} ${declared.join(" ")}` : company,
+      // The posting's own title and company, from the same meta.json as the allowance above. A
+      // folder with no meta.json strips nothing: its name is a slug, not the posting's exact title.
+      strip: meta ? [meta.title, meta.company] : [],
     });
     console.log(`\n${f}: ${findings.length ? findings.length + " ungrounded claim(s)" : "grounded"}`);
     for (const x of findings) console.log(`  ${x.kind.padEnd(13)} ${JSON.stringify(x.value)} — ${x.why}`);
