@@ -586,3 +586,17 @@ apprenticeships should count for a non-tech profile, the low-risk place is `FIEL
 - "insight events" and "insight evenings" (plural) do not count; the ticket's list names the singular.
 
 **Separate evaluation.** Not run yet.
+
+**Separate evaluation (fresh agent, spec + commits only).** `npm test` exit 0, 378 to 419 PASS,
+never-submit intact; ground: a year or name only inside the quoted posting title passes, the same
+year or an invented employer as a CV claim fails, a missing or odd meta.json does not crash;
+"Lead Insight Analyst" and "Customer Insight Manager" dropped, "Spring Insight Week" and
+"Insight Programme" kept, tech discover output identical; skeleton has no example booleans or skill
+groups and null reads as the default downstream; no GitHub line for a marketing profile; the tech
+example CV byte-identical; the headline instruction in /career-onboard is honest. It found one
+hole: a posting title that is only a year stripped every copy of that year. Fixed in ba41faa (a name
+with no letter is never stripped), re-checked by a second fresh agent: PASS. Known limits: malformed
+meta.json still throws a SyntaxError (unchanged); a profile with exactly one skill group, tech
+included, now prints no group label.
+
+Evaluation (separate agent): PASS — all 5 fixes behave to spec and tech output is byte-identical; the bare-year title hole the first evaluator found is closed in ba41faa and re-checked by a second evaluator.
