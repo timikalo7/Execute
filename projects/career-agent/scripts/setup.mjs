@@ -28,18 +28,26 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { FIELDS, answered, checkProfile, get, isDate, report, set } from "./profile-check.mjs";
 import { loadExample, profilePath, readJson } from "./profile.mjs";
+import { contextFor } from "./eligibility.mjs"; // self-test only: how eligibility reads the skeleton's nulls
 
 const SKIP = /^\s*(skip|s|-)?\s*$/i;
 const NONE = /^\s*(none|no|n\/a|nothing)\s*$/i;
 const YES = /^\s*y(es)?\s*$/i;
 const EMPLOYER_CLASSES = ["bank", "big-tech", "quant", "research", "tech-platform", "consultancy", "non-technical", "other"];
 
-/** The example's shape with every value emptied. `_help` notes are kept — they are documentation. */
+/**
+ * The example's shape with every value emptied. `_help` notes are kept — they are documentation.
+ *
+ * A boolean is emptied to null like a number. Copying it carried the fictional example's choices
+ * (target.remote_ok, target.bar.intern_only, target.events.require_travel_funding) into a real
+ * profile. Every reader treats null as its default: remote_ok and require_travel_funding are read as
+ * `!== false` (profile.mjs remoteOk, eligibility.mjs), and no script reads intern_only.
+ */
 export function emptyLike(v, key = "") {
   if (key.startsWith("_")) return v;
   if (typeof v === "string") return "";
   if (typeof v === "number") return null;
-  if (typeof v === "boolean") return v;
+  if (typeof v === "boolean") return null;
   if (Array.isArray(v)) return [];
   if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, emptyLike(x, k)]));
   return v;
@@ -47,6 +55,9 @@ export function emptyLike(v, key = "") {
 
 export function skeleton() {
   const s = emptyLike(loadExample());
+  // No skill groups: the example's groups (programming, web_and_cloud, ...) are a CS student's. The
+  // CV or the user names the groups. Only the `_help` note stays.
+  s.skills = Object.fromEntries(Object.entries(s.skills || {}).filter(([k]) => k.startsWith("_")));
   s._README = [
     "YOUR profile. It is gitignored: keep it that way, and never paste it into a public repository.",
     "Every CV line and form answer this tool writes must trace back to a string in here; `npm run ground` fails anything else.",
@@ -387,10 +398,37 @@ function selfTest() {
     walk(loadExample());
     // A string counts as leaked when it is in the saved profile but was never typed by the user.
     const typed = SAMPLE_ANSWERS.join("\n");
-    const leaked = exampleStrings.filter((s) => JSON.stringify(pa).includes(JSON.stringify(s)) && !typed.includes(s));
-    check("NOTHING from the fictional example leaks into a real profile (it never invents)", leaked.length === 0, JSON.stringify(leaked.slice(0, 5)));
-    const self = exampleStrings.filter((s) => JSON.stringify(loadExample()).includes(JSON.stringify(s)) && !typed.includes(s));
-    check("...and that leak check fires when pointed at the example itself", self.length > 20, `found ${self.length}`);
+    // So does any boolean the example holds (setup never asks for a boolean, so one in a profile it
+    // wrote can only be the example's), and any of the example's skill-group keys the user did not
+    // type. The example's tech groups and its remote_ok / intern_only / require_travel_funding
+    // choices once reached every real profile this way.
+    const exampleBools = [];
+    const walkBools = (v, at) => {
+      if (typeof v === "boolean") exampleBools.push(at);
+      else if (v && typeof v === "object" && !Array.isArray(v)) for (const [k, x] of Object.entries(v)) if (!k.startsWith("_")) walkBools(x, at ? `${at}.${k}` : k);
+    };
+    walkBools(loadExample(), "");
+    const exampleGroups = Object.keys(loadExample().skills || {}).filter((k) => !k.startsWith("_"));
+    const leaks = (p) => ({
+      strings: exampleStrings.filter((s) => JSON.stringify(p).includes(JSON.stringify(s)) && !typed.includes(s)),
+      booleans: exampleBools.filter((b) => typeof get(p, b) === "boolean"),
+      groups: exampleGroups.filter((g) => Object.hasOwn(p.skills || {}, g) && !typed.split("\n").includes(g)),
+    });
+    const leaked = leaks(pa);
+    check("NOTHING from the fictional example leaks into a real profile (it never invents)", leaked.strings.length === 0 && leaked.booleans.length === 0 && leaked.groups.length === 0, JSON.stringify(leaked));
+    const self = leaks(loadExample());
+    check("...and that leak check fires when pointed at the example itself", self.strings.length > 20 && exampleBools.length === 3 && self.booleans.length === exampleBools.length && self.groups.length > 0, `found ${self.strings.length} strings, ${self.booleans.length} of ${exampleBools.length} booleans, ${self.groups.length} groups`);
+
+    // The skeleton itself, and what `npm run setup < /dev/null` writes from it.
+    const sk = skeleton();
+    check("the skeleton copies no boolean from the example (each is null)", exampleBools.every((b) => get(sk, b) === null), JSON.stringify(exampleBools.map((b) => [b, get(sk, b)])));
+    check("...and every reader takes that null as its default (remote ok, travel funding required)", contextFor(sk).remoteOk === true && contextFor(sk).requireTravelFunding === true, JSON.stringify({ remoteOk: contextFor(sk).remoteOk, requireTravelFunding: contextFor(sk).requireTravelFunding }));
+    check("the skeleton has no skill-group keys (the CV or the user names the groups)", sk.skills && typeof sk.skills === "object" && Object.keys(sk.skills).filter((k) => !k.startsWith("_")).length === 0, JSON.stringify(Object.keys(sk.skills || {})));
+    const devNull = path.join(tmp, "dev-null.json");
+    const z = run(devNull, []);
+    const pz = fs.existsSync(devNull) ? readJson(devNull) : {};
+    const lz = leaks(pz);
+    check("no input at all → the written skeleton has no example boolean, no skill group and no example string", z.status === 1 && exampleBools.every((b) => get(pz, b) === null) && Object.keys(pz.skills || {}).every((k) => k.startsWith("_")) && lz.strings.length === 0, `exit ${z.status}, ${JSON.stringify(lz)}, skills ${JSON.stringify(Object.keys(pz.skills || {}))}`);
 
     // 2. One required answer skipped → profile:check reports exactly that field.
     const skipped = path.join(tmp, "skipped.json");
