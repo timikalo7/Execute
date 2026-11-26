@@ -39,7 +39,7 @@ import path from "node:path";
 import { assess } from "./eligibility.mjs";
 import { rank } from "./bar.mjs";
 import { decisions, isDecided } from "./decisions.mjs";
-import { barConfig, boostKeywords, fromHeader, homeRegex, inRange, intake, loadExample, loadProfile, PROJECT_ROOT, targetCountries, userAgent } from "./profile.mjs";
+import { barConfig, boostKeywords, fromHeader, homeRegex, inRange, intake, loadExample, loadProfile, PROJECT_ROOT, targetCountries, termsRegex, userAgent } from "./profile.mjs";
 
 const ROOT = process.cwd();
 const SOURCES = path.join(ROOT, "jobs", "sources.json");
@@ -51,12 +51,99 @@ const DRY = args.includes("--dry");
 const ONLY_NEW = args.includes("--new");
 
 // ---------------------------------------------------------------- matching rules
-// An "internship" here means a summer/industrial placement for a student, in tech, somewhere your
-// profile says you can work. Each rule is separate so a miss can be diagnosed rather than guessed at.
+// An "internship" here means a summer/industrial placement for a student, in YOUR field, somewhere
+// your profile says you can work. Each rule is separate so a miss can be diagnosed rather than
+// guessed at. The field comes from the profile (fieldWords below); TECH_RE is the default.
 const INTERN_RE = /\b(intern|internship|placement|industrial year|summer analyst|work experience|insight|spring week|graduate scheme)\b/i;
 const TECH_RE = /\b(software|engineer|engineering|developer|technology|data|machine learning|ml|ai|research|quant|infrastructure|platform|backend|full[- ]?stack|security)\b/i;
 // Excludes things that match "intern" but are not internships.
 const EXCLUDE_RE = /\b(internal|international(?! )|internship program manager|recruiter|sales|marketing intern|hr intern)\b/i;
+// The same terms as EXCLUDE_RE, each with the field word(s) that switch it off for a profile whose
+// own field it is: a marketing student must see "Marketing Intern". The self-test proves this list
+// and EXCLUDE_RE agree, so the tech default keeps exactly the regex above.
+const EXCLUDE_TERMS = [
+  ["internal", ["internal"]],
+  ["international(?! )", ["international"]],
+  ["internship program manager", []], // a recruiting job, never a field
+  ["recruiter", ["recruiter"]],
+  ["sales", ["sales"]],
+  ["marketing intern", ["marketing"]],
+  ["hr intern", ["hr", "human resources"]],
+];
+
+// ---------------------------------------------------------------- the attendee's field
+// A sector that names tech keeps TECH_RE. "IT" must be a whole word, so "Audit" is not read as IT.
+const TECH_SECTOR_RE = /tech|software|computing|computer|data|engineering|\bIT\b/i;
+// Words in target.roles that say what KIND of role it is, not which field. Never field words.
+const GENERIC_WORDS = new Set(
+  "intern internship placement summer graduate programme program scheme analyst associate year role roles and the for with in of".split(" "),
+);
+
+/** True when the profile is a tech profile: no sector, or a sector that names tech. */
+export const isTechSector = (profile) => {
+  const sector = String(profile?.target?.sector || "").trim();
+  return !sector || TECH_SECTOR_RE.test(sector);
+};
+
+/**
+ * The words a job-board title must contain to count as the attendee's field. Pure.
+ *
+ *   1. target.title_keywords, when it is a non-empty list: exactly those, as whole words.
+ *   2. Else a missing or tech sector: TECH_RE, unchanged ({ from: "tech", words: null }).
+ *   3. Else the words of target.roles plus target.boost_keywords, lower-cased, without words of three
+ *      letters or fewer and without GENERIC_WORDS. One exception to the length rule: a short word the
+ *      profile writes in capitals is an acronym (HR, PR, UX), so it is kept. Numbers are not words.
+ */
+export function fieldWords(profile) {
+  const t = profile?.target || {};
+  const own = (Array.isArray(t.title_keywords) ? t.title_keywords : []).map((k) => String(k).trim()).filter(Boolean);
+  if (own.length) return { from: "title_keywords", words: [...new Set(own.map((k) => k.toLowerCase()))] };
+  if (isTechSector(profile)) return { from: "tech", words: null };
+  const words = [];
+  for (const phrase of [].concat(t.roles || [], t.boost_keywords || []))
+    for (const w of String(phrase).split(/[^\p{L}\p{N}]+/u)) {
+      const lw = w.toLowerCase();
+      if (!/\p{L}/u.test(w) || GENERIC_WORDS.has(lw)) continue;
+      const acronym = w.length >= 2 && w === w.toUpperCase();
+      if (lw.length <= 3 && !acronym) continue;
+      if (!words.includes(lw)) words.push(lw);
+    }
+  return { from: "roles", words };
+}
+
+/** fieldWords as a whole-word, case-insensitive regex. A tech profile gets TECH_RE itself. */
+export function fieldWordsRe(profile) {
+  const f = fieldWords(profile);
+  if (f.from === "tech") return TECH_RE;
+  // No usable word (e.g. roles "Law intern": "law" is three letters): keep every internship rather
+  // than show an empty board. main() prints how to narrow it with target.title_keywords.
+  return termsRegex(f.words) || /(?:)/;
+}
+
+/** EXCLUDE_RE without the terms that name the profile's own field. A tech profile gets EXCLUDE_RE. */
+export function excludeRe(profile) {
+  const { words } = fieldWords(profile);
+  if (!words) return EXCLUDE_RE;
+  const has = (k) => words.includes(k) || (k.includes(" ") && k.split(" ").every((w) => words.includes(w)));
+  const kept = EXCLUDE_TERMS.filter(([, keys]) => !keys.some(has)).map(([term]) => term);
+  if (kept.length === EXCLUDE_TERMS.length) return EXCLUDE_RE;
+  return new RegExp(`\\b(${kept.join("|")})\\b`, "i");
+}
+
+// Law firms call their summer internship a "vacation scheme". Accepted for a profile with its own
+// field words only, so a tech profile keeps INTERN_RE exactly.
+const FIELD_INTERN_RE = /\b(vacation scheme)\b/i;
+
+/** The job-board filter main() applies: an internship, not excluded, in the field, in range. Pure. */
+export function matchJobs(all, profile) {
+  const field = fieldWordsRe(profile);
+  const exclude = excludeRe(profile);
+  const intern = fieldWords(profile).words ? (t) => INTERN_RE.test(t) || FIELD_INTERN_RE.test(t) : (t) => INTERN_RE.test(t);
+  return all
+    .filter((j) => intern(j.title) && !exclude.test(j.title))
+    .filter((j) => field.test(j.title))
+    .filter((j) => inRange(j.location, profile) || inRange(j.title, profile));
+}
 
 const fetchJSON = async (url) => {
   const r = await fetch(url, {
@@ -605,11 +692,15 @@ async function main() {
     .sort((a, b) => b.score - a.score);
   // Events are gated too, on their own terms.
 
-  const matchedRaw = all
-    .filter((j) => INTERN_RE.test(j.title) && !EXCLUDE_RE.test(j.title))
-    .filter((j) => TECH_RE.test(j.title))
-    .filter((j) => inRange(j.location, profile) || inRange(j.title, profile))
-    .map((j) => ({ ...j, kind: "job", first_seen: new Date().toISOString().slice(0, 10) }));
+  // Job-board titles must name the attendee's field: TECH_RE for a tech profile, otherwise the words
+  // of target.title_keywords or target.roles (fieldWords). Said out loud, so a thin board can be fixed.
+  const field = fieldWords(profile);
+  if (field.from !== "tech") {
+    console.error(`\n  field words (from target.${field.from}): ${field.words.join(", ") || "none"}`);
+    if (!field.words.length)
+      console.error(`  no field word could be read from target.roles, so every internship is kept — add target.title_keywords, e.g. ["law", "legal"]`);
+  }
+  const matchedRaw = matchJobs(all, profile).map((j) => ({ ...j, kind: "job", first_seen: new Date().toISOString().slice(0, 10) }));
 
   console.error("\n  --- enrichment (fetching full postings for the shortlist) ---");
   await enrich(matchedRaw);
@@ -630,7 +721,7 @@ async function main() {
   const fresh = [...matched.filter((j) => !seen.has(j.url) && !isDecided(decided, j.url)), ...freshOpps];
 
   console.error(
-    `\n${all.length} postings fetched · ${matched.length} match (tech internship, in your target locations) · ${fresh.length} new since last run`,
+    `\n${all.length} postings fetched · ${matched.length} match (internship in your field, in your target locations) · ${fresh.length} new since last run`,
   );
   if (errors.length) {
     console.error(`\n${errors.length} source(s) FAILED — reported, not swallowed:`);
@@ -845,6 +936,86 @@ async function selfTest() {
     globalThis.fetch = realFetch;
   }
   t("J.P. Morgan source returns only the student roles", [...jpmTitles].sort().join("|") === [...JPM_KEPT].sort().join("|"), JSON.stringify(jpmTitles));
+
+  // THE ATTENDEE'S FIELD. A finance student was shown only CS roles, because the job-board filter
+  // was TECH_RE for everyone. Both ways, for several fields; and the tech default byte-identical.
+  const withTarget = (over) => ({ ...ex, target: { ...ex.target, title_keywords: undefined, ...over } });
+  const inLondon = (title) => ({ title, location: "London, United Kingdom", url: `https://example.com/${encodeURIComponent(title)}` });
+  const keeps = (p, title) => matchJobs([inLondon(title)], p).length === 1;
+  const finance = withTarget({
+    sector: "Finance",
+    roles: ["Investment banking summer analyst", "Audit intern", "Finance placement"],
+    boost_keywords: ["markets", "excel"],
+    locations: ["Edinburgh", "London"],
+  });
+  const marketing = withTarget({ sector: "Marketing", roles: ["Marketing intern", "Brand placement"], boost_keywords: [], locations: ["London"] });
+  const law = withTarget({ sector: "Law", roles: ["Legal intern", "Vacation scheme"], boost_keywords: [], locations: ["London"] });
+  const sales = withTarget({ sector: "Sales", roles: ["Sales intern", "Business development placement"], boost_keywords: [], locations: ["London"] });
+  const hr = withTarget({ sector: "Human resources", roles: ["HR intern", "People placement"], boost_keywords: [], locations: ["London"] });
+  const people = withTarget({ sector: "People", roles: ["Human resources intern"], boost_keywords: [], locations: ["London"] });
+
+  // Tech default: the same regex objects, so the filter cannot drift.
+  t("a tech profile's field words are TECH_RE itself", fieldWordsRe(ex) === TECH_RE, String(fieldWordsRe(ex)));
+  t("a tech profile's exclusions are EXCLUDE_RE itself", excludeRe(ex) === EXCLUDE_RE, String(excludeRe(ex)));
+  t("EXCLUDE_TERMS spells exactly EXCLUDE_RE", new RegExp(`\\b(${EXCLUDE_TERMS.map(([x]) => x).join("|")})\\b`, "i").source === EXCLUDE_RE.source, "drifted");
+  for (const sector of [undefined, "", "Technology", "Computer Science", "Software", "Data science", "IT", "Fintech"])
+    t(`sector ${JSON.stringify(sector)} keeps TECH_RE`, fieldWordsRe(withTarget({ sector })) === TECH_RE, String(fieldWordsRe(withTarget({ sector }))));
+  t(`sector "Audit" is not read as IT`, fieldWordsRe(withTarget({ sector: "Audit", roles: ["Audit intern"] })) !== TECH_RE, "read as tech");
+  // ...and its results are today's, title by title: the old chain, inline, against matchJobs.
+  const MIXED = [
+    "Software Engineer Intern", "Data Analyst, Intern", "Security Engineering Placement", "Machine Learning Research Internship",
+    "Audit Intern 2027", "Summer Analyst - Markets", "Investment Banking Summer Internship", "Marketing Intern - Consumer Brands",
+    "Sales Intern", "HR Intern", "Internal Tools Engineer Intern", "Legal Vacation Scheme 2027", "Technology Vacation Scheme",
+    "Recruiter - Engineering Internships", "Internship Program Manager, Engineering", "Brand Marketing Internship",
+  ];
+  const rows = MIXED.flatMap((title) => [inLondon(title), { ...inLondon(title), location: "Lisbon, Portugal" }]);
+  const oldChain = rows
+    .filter((j) => INTERN_RE.test(j.title) && !EXCLUDE_RE.test(j.title))
+    .filter((j) => TECH_RE.test(j.title))
+    .filter((j) => inRange(j.location, ex) || inRange(j.title, ex));
+  const newChain = matchJobs(rows, ex);
+  t(`the example profile keeps exactly today's titles (${oldChain.length} of ${rows.length})`, oldChain.length > 0 && oldChain.length < rows.length && JSON.stringify(newChain) === JSON.stringify(oldChain), `${newChain.length} vs ${oldChain.length}`);
+
+  // Finance: the ticket's example, word for word.
+  t("finance field words are investment, banking, audit, finance, markets, excel", fieldWords(finance).words.join(",") === "investment,banking,audit,finance,markets,excel", fieldWords(finance).words.join(","));
+  for (const title of ["Summer Analyst - Markets", "Audit Intern 2027", "Investment Banking Summer Internship"])
+    t(`finance keeps "${title}"`, keeps(finance, title), "dropped");
+  t(`finance drops "Software Engineer Intern"`, !keeps(finance, "Software Engineer Intern"), "kept");
+  t(`finance drops "Credit Analyst Intern" (analyst alone is not a field word)`, !keeps(finance, "Credit Analyst Intern"), "kept");
+  t(`tech example drops "Audit Intern 2027"`, !keeps(ex, "Audit Intern 2027"), "kept");
+
+  // Marketing and law: other fields, same rule, no field-specific code.
+  t(`marketing keeps "Marketing Intern - Consumer Brands"`, keeps(marketing, "Marketing Intern - Consumer Brands"), "dropped");
+  t(`marketing drops "Software Engineer Intern"`, !keeps(marketing, "Software Engineer Intern"), "kept");
+  t(`tech example drops "Marketing Intern - Consumer Brands"`, !keeps(ex, "Marketing Intern - Consumer Brands"), "kept");
+  t(`law keeps "Legal Vacation Scheme 2027"`, keeps(law, "Legal Vacation Scheme 2027"), "dropped");
+  t(`law drops "Software Engineer Intern"`, !keeps(law, "Software Engineer Intern"), "kept");
+  t(`tech example drops "Technology Vacation Scheme" (INTERN_RE unchanged)`, !keeps(ex, "Technology Vacation Scheme"), "kept");
+
+  // An exclusion that names the profile's own field is skipped for that profile, and only for it.
+  t(`marketing: "marketing intern" is not excluded`, !excludeRe(marketing).test("Marketing Intern"), String(excludeRe(marketing)));
+  t(`tech example: "Marketing Intern" is still excluded`, EXCLUDE_RE.test("Marketing Intern") && excludeRe(ex).test("Marketing Intern"), "not excluded");
+  t(`sales keeps "Sales Intern"`, keeps(sales, "Sales Intern"), "dropped");
+  t(`tech example drops "Sales Intern"`, !keeps(ex, "Sales Intern") && excludeRe(ex).test("Sales Intern"), "kept");
+  t(`HR (acronym kept) keeps "HR Intern - Summer 2027"`, fieldWords(hr).words.includes("hr") && keeps(hr, "HR Intern - Summer 2027"), fieldWords(hr).words.join(","));
+  t(`"human resources" in roles switches off the "hr intern" exclusion`, !excludeRe(people).test("HR Intern"), String(excludeRe(people)));
+  t(`tech example drops "HR Intern"`, !keeps(ex, "HR Intern"), "kept");
+  t(`marketing still excludes "Internship Program Manager" and "Internal ..."`, excludeRe(marketing).test("Internship Program Manager") && excludeRe(marketing).test("Internal Audit Intern"), String(excludeRe(marketing)));
+  t(`sales does not switch off the marketing exclusion`, excludeRe(sales).test("Marketing Intern") && !excludeRe(sales).test("Sales Intern"), String(excludeRe(sales)));
+
+  // target.title_keywords overrides both the tech default and the words from target.roles.
+  const techOwn = withTarget({ title_keywords: ["audit"] });
+  t(`title_keywords ["audit"] on a tech sector keeps "Audit Intern 2027"`, keeps(techOwn, "Audit Intern 2027"), "dropped");
+  t(`title_keywords ["audit"] on a tech sector drops "Software Engineer Intern"`, !keeps(techOwn, "Software Engineer Intern"), "kept");
+  const financeOwn = { ...finance, target: { ...finance.target, title_keywords: ["analyst"] } };
+  t(`title_keywords ["analyst"] keeps "Credit Analyst Intern" (analyst named)`, keeps(financeOwn, "Credit Analyst Intern"), "dropped");
+  t(`title_keywords ["analyst"] drops "Audit Intern 2027" (roles ignored)`, !keeps(financeOwn, "Audit Intern 2027"), "kept");
+  t(`title_keywords match whole words only`, !keeps(withTarget({ title_keywords: ["audit"] }), "Auditory Research Intern"), "kept");
+  t(`roles with no usable word keep every internship (no empty board)`, keeps(withTarget({ sector: "Law", roles: ["Law intern"], boost_keywords: [] }), "Paralegal Intern"), "dropped");
+
+  // main() really uses the rule: a rule that exists but is not wired in fails here.
+  const mainSrc = fs.readFileSync(new URL(import.meta.url), "utf8").split("async function main()")[1].split("async function selfTest()")[0];
+  t("main() filters job boards with matchJobs, not TECH_RE", /matchJobs\(all, profile\)/.test(mainSrc) && !/TECH_RE\.test/.test(mainSrc), "not wired");
 
   console.log(bad ? `\nself-test FAILED (${bad})` : "\nself-test passed — Junction parser accepts open events and rejects closed ones; scoring and filtering follow the profile");
   process.exit(bad ? 1 : 0);
