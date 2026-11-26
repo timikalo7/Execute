@@ -7,6 +7,7 @@
  *
  *   Adzuna   official API, free key     ADZUNA_APP_ID + ADZUNA_APP_KEY   used when both are set
  *   Reed     official API, free key     REED_API_KEY                      used when it is set
+ *   Apify    LinkedIn + Indeed actors   APIFY_TOKEN                       OPT-IN, warns each run
  *
  * With no key a source prints one "not configured" line and makes NO network call. That is not a
  * failure: the tool works exactly as before. A key the service refuses is a FAILED source.
@@ -93,6 +94,13 @@ export async function fetchWithTimeout(fetchImpl, url, init, ms) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const env1 = (env, k) => String(env[k] ?? "").trim();
+
+const APIFY_ITEMS = 25; // results asked of an actor per query (the ticket's ceiling is 50)
+const APIFY_RUN_SECONDS = 120; // the actor run's own timeout; the request waits a little longer
+const ACTOR_RE = /^([A-Za-z0-9][A-Za-z0-9._-]*~[A-Za-z0-9][A-Za-z0-9._-]*|[A-Za-z0-9]{17})$/;
+
+/** The actor to run: the override if set ("user/name" is accepted as "user~name"), else the default. */
+const apifyActor = (env, actorVar, defaultActor) => (env1(env, actorVar) || defaultActor).replace("/", "~");
 
 /**
  * The sources. Each one says which variables it needs, where the free key comes from, how one
@@ -190,8 +198,91 @@ export const API_SOURCES = [
       link: (d, row) => reedLink(d, row._id),
     },
   },
+  // APIFY — OPT-IN ONLY. LinkedIn's and Indeed's terms forbid scraping, and these sources run
+  // third-party scrapers ("actors") on Apify against them. They run only when APIFY_TOKEN is set,
+  // and say so in one line each run; with no token they make no call.
+  //
+  // Docs, fetched 2026-11-26: https://docs.apify.com/api/v2/act-run-sync-get-dataset-items-post
+  // (POST https://api.apify.com/v2/actors/:actorId/run-sync-get-dataset-items; the actor id is
+  // "username~actor-name"; the body is the actor's input; `timeout` in seconds and `maxItems` as
+  // query parameters; the answer is the dataset items as a JSON array; "If the Actor run exceeds 300
+  // seconds, the HTTP response will return the 408 status code"; 401 invalid token, 402 payment
+  // required), https://docs.apify.com/api/v2 (the token goes in "Authorization: Bearer <token>",
+  // recommended over the `token` query parameter because "URLs are often stored in browser history
+  // and server logs"; 429 when a rate limit is exceeded) and
+  // https://docs.apify.com/platform/integrations/api (the token is at
+  // console.apify.com/settings/integrations). A made-up token measured HTTP 401.
+  //
+  // The actors were chosen in the public store (https://docs.apify.com/api/v2/store-get:
+  // GET https://api.apify.com/v2/store?search=linkedin%20jobs&includeInputSchema=true), and their
+  // input and output read from the default build (https://docs.apify.com/api/v2/act-build-default-get:
+  // GET https://api.apify.com/v2/actors/<actor>/builds/default, whose actorDefinition holds the input
+  // schema and whose readme shows an output item). Measured 2026-11-26:
+  //   valig~linkedin-jobs-scraper  9,867 users in 30 days, rating 4.6 (28), build of 2026-11-18;
+  //     input keywords, location, limit (1-1000, default 100); output id, url, title, location,
+  //     companyName, postedDate, description, ...
+  //   valig~indeed-jobs-scraper    6,471 users in 30 days, rating 4.7 (18), build of 2026-11-18;
+  //     input country (default "us"; "uk" listed), title, location, limit (1-1000); output key, url,
+  //     title, jobUrl, datePublished, location.city/countryName, employer.name, description.text, ...
+  // Another actor can be named with CAREER_AGENT_APIFY_LINKEDIN_ACTOR / _INDEED_ACTOR; it must take
+  // the same input and give the same fields.
+  apifySource({
+    name: "Apify LinkedIn",
+    source: "apify-linkedin",
+    actorVar: "CAREER_AGENT_APIFY_LINKEDIN_ACTOR",
+    defaultActor: "valig~linkedin-jobs-scraper",
+    input: ({ role, location }) => ({ keywords: role, ...(location ? { location } : {}), limit: APIFY_ITEMS }),
+    row: (j) => ({
+      company: text(j?.companyName),
+      title: text(j?.title),
+      location: text(j?.location),
+      url: String(j?.url || ""),
+      posted: j?.postedDate || null,
+      description: snippet(j?.description),
+    }),
+  }),
+  apifySource({
+    name: "Apify Indeed",
+    source: "apify-indeed",
+    actorVar: "CAREER_AGENT_APIFY_INDEED_ACTOR",
+    defaultActor: "valig~indeed-jobs-scraper",
+    // The other job APIs here search the UK (Adzuna's gb endpoint, Reed), so Indeed does too.
+    input: ({ role, location }) => ({ country: "uk", title: role, ...(location ? { location } : {}), limit: APIFY_ITEMS }),
+    row: (j) => ({
+      company: text(j?.employer?.name),
+      title: text(j?.title),
+      location: [j?.location?.city, j?.location?.countryName].map(text).filter(Boolean).join(", "),
+      url: String(j?.jobUrl || j?.url || ""),
+      posted: j?.datePublished || null,
+      description: snippet(j?.description?.text),
+    }),
+  }),
 ];
 
+
+/** One opt-in Apify source: the shared token, warning, request and checks; the actor's own input and fields. */
+function apifySource({ name, source, actorVar, defaultActor, input, row }) {
+  return {
+    name,
+    group: "Apify",
+    env: ["APIFY_TOKEN"],
+    notConfigured: "Apify (LinkedIn, Indeed): not configured — opt-in only: set APIFY_TOKEN (free account: console.apify.com/settings/integrations); it scrapes sites whose terms forbid it",
+    warning: "Apify: LinkedIn's and Indeed's terms of use forbid scraping; APIFY_TOKEN is set, so these scrapers run on your Apify account — your choice and your risk.",
+    actorVar,
+    rejected: [401, 403],
+    hints: { 402: "payment required: check your Apify credit", 408: "the actor ran longer than 5 minutes" },
+    timeoutMs: (APIFY_RUN_SECONDS + 30) * 1000,
+    // The value itself is not printed: a token pasted into the wrong variable would leak.
+    check: (env) => (ACTOR_RE.test(apifyActor(env, actorVar, defaultActor)) ? null : `${actorVar} is not an actor id like username~actor-name`),
+    request: (q, env) => ({
+      method: "POST",
+      url: `https://api.apify.com/v2/actors/${encodeURIComponent(apifyActor(env, actorVar, defaultActor))}/run-sync-get-dataset-items?timeout=${APIFY_RUN_SECONDS}&maxItems=${APIFY_ITEMS}`,
+      headers: { accept: "application/json", "content-type": "application/json", "user-agent": userAgent(), authorization: `Bearer ${env1(env, "APIFY_TOKEN")}` },
+      body: JSON.stringify(input(q)),
+    }),
+    parse: (d) => (Array.isArray(d) ? d : []).filter((j) => j && typeof j === "object").map((j) => ({ source, kind: "job", ...row(j) })),
+  };
+}
 /** Basic auth with the key as the username and an empty password, as Reed's page says. */
 function reedHeaders(env) {
   return { accept: "application/json", "user-agent": userAgent(), authorization: `Basic ${Buffer.from(`${env1(env, "REED_API_KEY")}:`).toString("base64")}` };
@@ -266,7 +357,7 @@ export async function fetchApiSources(profile, { env = process.env, fetchImpl = 
     const call = async (req) => {
       const r = await fetchWithTimeout(fetchImpl, req.url, { method: req.method, headers: req.headers, body: req.body }, s.timeoutMs);
       if (s.rejected.includes(r.status)) throw new Error(`key rejected (HTTP ${r.status})`);
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      if (!r.ok) throw new Error(`HTTP ${r.status}${s.hints?.[r.status] ? ` — ${s.hints[r.status]}` : ""}`);
       try {
         return await r.json();
       } catch {

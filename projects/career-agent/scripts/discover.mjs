@@ -17,6 +17,12 @@
  *              ther3cruit    sits behind a captcha layer (robots.txt itself returns a challenge)
  *              blackrock     robots.txt disallows /search-jobs/ — so that path is off-limits
  *
+ *   JOB APIS — scripts/sources-api.mjs. Adzuna and Reed (official APIs, free keys) search the whole
+ *            job market when their keys are set. Apify's LinkedIn and Indeed scrapers run ONLY when
+ *            APIFY_TOKEN is set — those sites' terms forbid scraping, so it is the user's opt-in, and
+ *            each run says so. With no keys: one "not configured" line each, no network call. Their
+ *            rows go through the same job-board filter (matchJobs) as every other posting.
+ *
  * Filtering is intentionally strict. The job of this tool is NOT to produce volume — it is to surface
  * the handful of roles worth your evening, and (if you already hold an offer) worth declining it for.
  *
@@ -689,8 +695,9 @@ async function main() {
     }
   }
 
-  // JOB APIS (scripts/sources-api.mjs): Adzuna and more, each only when its free key is set. With
-  // no key: one "not configured" line and no network call. Their rows join the job-board rows, so
+  // JOB APIS (scripts/sources-api.mjs): Adzuna and Reed when their free keys are set; Apify's
+  // LinkedIn/Indeed scrapers only with APIFY_TOKEN. With no key: one "not configured" line and no
+  // network call. Their rows join the job-board rows, so
   // matchJobs below gives them the very same filter (internship, field, exclusions, location).
   const api = await fetchApiSources(profile, { known: new Set(all.map((j) => normalizeUrl(j.url))), keep: (rows) => matchJobs(rows, profile) });
   all.push(...api.rows);
@@ -1143,6 +1150,7 @@ async function selfTest() {
     ADZUNA_APP_ID: "fakeid-7f3a91",
     ADZUNA_APP_KEY: "fakekey-c0ffee-0123456789",
     REED_API_KEY: "fake-reed-1b2c3d4e-0000-4f00-9abc-def012345678",
+    APIFY_TOKEN: "apify_api_FAKEfakeFAKEfake0123456789",
   };
   // ...nor their Basic-auth form (Reed sends base64("key:") in a header).
   const FAKE_VALUES = Object.values(FAKE).flatMap((v) => [v, Buffer.from(`${v}:`).toString("base64")]);
@@ -1332,6 +1340,85 @@ async function selfTest() {
   const reedKept = matchJobs(reedRun.rows, financeBlank).map((j) => j.title);
   t(`Reed rows through matchJobs: "Senior Accountant" dropped, the internship and placement kept`, reedKept.join("|") === "Audit Intern 2027|Finance Placement Year 2027", JSON.stringify(reedKept));
   t("main() passes matchJobs as the lookup filter", /keep: \(rows\) => matchJobs\(rows, profile\)/.test(mainSrc), "not wired");
+
+  // APIFY (opt-in). The fixtures are the output items shown in each actor's README (default build,
+  // read 2026-11-26), trimmed to the fields read.
+  const LINKEDIN_FIXTURE = [
+    { id: "4300000001", url: "https://www.linkedin.com/jobs/view/audit-intern-summer-2027-at-example-audit-4300000001", title: "Audit Intern - Summer 2027", location: "Edinburgh, Scotland, United Kingdom", companyName: "Example Audit LLP", contractType: "Internship", postedTimeAgo: "2 days ago", postedDate: "2026-11-24", description: "Our audit internship runs for ten weeks." },
+    { id: "4300000002", url: "https://www.linkedin.com/jobs/view/senior-audit-manager-at-example-bank-4300000002", title: "Senior Audit Manager", location: "London, England, United Kingdom", companyName: "Example Bank", contractType: "Full-time", postedDate: "2026-11-23", description: "Lead audit engagements." },
+  ];
+  const INDEED_FIXTURE = [
+    { key: "a1b2c3d4e5f60001", url: "https://uk.indeed.com/viewjob?jk=a1b2c3d4e5f60001", title: "Finance Intern 2027", jobUrl: "https://careers.example.com/finance-intern-2027", datePublished: "2026-11-21T05:00:00.000Z", location: { countryName: "United Kingdom", countryCode: "GB", city: "London" }, employer: { name: "Example Capital" }, description: { text: "A summer finance internship.", html: "<p>A summer finance internship.</p>" } },
+    { key: "a1b2c3d4e5f60002", url: "https://uk.indeed.com/viewjob?jk=a1b2c3d4e5f60002", title: "Financial Controller", jobUrl: null, datePublished: "2026-11-20T05:00:00.000Z", location: { countryName: "United Kingdom", countryCode: "GB", city: "London" }, employer: { name: "Example Bank" }, description: { text: "Ten years' experience." } },
+  ];
+  const li = src("Apify LinkedIn").parse(LINKEDIN_FIXTURE);
+  const ind = src("Apify Indeed").parse(INDEED_FIXTURE);
+  t("Apify LinkedIn: a README output item becomes a job-board row",
+    li.length === 2 && JSON.stringify(li[0]) === JSON.stringify({ source: "apify-linkedin", kind: "job", company: "Example Audit LLP", title: "Audit Intern - Summer 2027", location: "Edinburgh, Scotland, United Kingdom", url: LINKEDIN_FIXTURE[0].url, posted: "2026-11-24", description: "Our audit internship runs for ten weeks." }),
+    JSON.stringify(li[0]));
+  t("Apify Indeed: a README output item becomes a job-board row (employer link first, Indeed's when none)",
+    ind.length === 2 && JSON.stringify(ind[0]) === JSON.stringify({ source: "apify-indeed", kind: "job", company: "Example Capital", title: "Finance Intern 2027", location: "London, United Kingdom", url: "https://careers.example.com/finance-intern-2027", posted: "2026-11-21T05:00:00.000Z", description: "A summer finance internship." }) && ind[1].url === INDEED_FIXTURE[1].url,
+    JSON.stringify(ind));
+  t("Apify: an unexpected answer gives no rows and does not throw", [null, {}, { error: { type: "x" } }, [null, 3]].every((d) => src("Apify LinkedIn").parse(d).length === 0 && src("Apify Indeed").parse(d).length === 0), "threw or rows");
+  for (const [name, actor, inputKeys] of [["Apify LinkedIn", "valig~linkedin-jobs-scraper", ["keywords", "location", "limit"]], ["Apify Indeed", "valig~indeed-jobs-scraper", ["country", "title", "location", "limit"]]]) {
+    const r = showRequest(name, FAKE);
+    const u = new URL(r.req.url);
+    const body = JSON.parse(r.req.body);
+    t(`${name} request: ${r.line} · input ${JSON.stringify(body)}`,
+      r.req.method === "POST" && u.origin + u.pathname === `https://api.apify.com/v2/actors/${actor}/run-sync-get-dataset-items` &&
+        Number(u.searchParams.get("maxItems")) <= 50 && Number(u.searchParams.get("timeout")) > 0 && !u.searchParams.has("token") &&
+        r.req.headers.authorization === `Bearer ${FAKE.APIFY_TOKEN}` && !r.req.url.includes(FAKE.APIFY_TOKEN) &&
+        Object.keys(body).join() === inputKeys.join() && body.limit <= 50 && (body.keywords || body.title) === "Audit intern" && body.location === "Edinburgh" && leaks(r.line).length === 0,
+      r.req.url);
+  }
+  t("Apify Indeed asks for the UK", JSON.parse(showRequest("Apify Indeed", FAKE).req.body).country === "uk", "not uk");
+  {
+    const env = { ...FAKE, CAREER_AGENT_APIFY_LINKEDIN_ACTOR: "someone/other-jobs", CAREER_AGENT_APIFY_INDEED_ACTOR: "someone~other-indeed" };
+    t("Apify: the two actor overrides are used (\"user/name\" read as \"user~name\")",
+      src("Apify LinkedIn").request(q0, env).url.includes("/actors/someone~other-jobs/") && src("Apify Indeed").request(q0, env).url.includes("/actors/someone~other-indeed/"), src("Apify LinkedIn").request(q0, env).url);
+    const f = stubFetch(() => answer(LINKEDIN_FIXTURE, 201));
+    const r = await runApi({ ...FAKE, CAREER_AGENT_APIFY_LINKEDIN_ACTOR: "../../v2/users/me" }, f, ["Apify LinkedIn"]);
+    t("Apify: an actor override that is not an actor id fails the source, with no call", f.calls.length === 0 && r.errors[0] === "Apify LinkedIn: CAREER_AGENT_APIFY_LINKEDIN_ACTOR is not an actor id like username~actor-name", `${f.calls.length} ${JSON.stringify(r.errors)}`);
+  }
+  {
+    const f = stubFetch(() => answer(LINKEDIN_FIXTURE, 201));
+    const r = await runApi({ ADZUNA_APP_ID: FAKE.ADZUNA_APP_ID, REED_API_KEY: FAKE.REED_API_KEY }, f, ["Apify LinkedIn", "Apify Indeed"]);
+    const lines = r.out.split("\n").filter((x) => x.includes("Apify (LinkedIn, Indeed): not configured — opt-in only: set APIFY_TOKEN"));
+    t("Apify, no token: no fetch, one \"not configured\" line for both actors, no warning, not a failure",
+      f.calls.length === 0 && lines.length === 1 && !r.out.includes("terms of use") && r.errors.length === 0 && r.rows.length === 0, `${f.calls.length} calls; ${r.out}`);
+  }
+  const apifyFetch = stubFetch((url) => answer(url.includes("indeed") ? INDEED_FIXTURE : LINKEDIN_FIXTURE, 201));
+  const apifyRun = await runApi(FAKE, apifyFetch, ["Apify LinkedIn", "Apify Indeed"]);
+  const warnings = apifyRun.out.split("\n").filter((x) => x.includes("terms of use forbid scraping"));
+  t(`Apify, token set: the terms-of-use warning once, ${apifyFetch.calls.length} runs (6 per actor), 4 rows`,
+    warnings.length === 1 && apifyRun.out.indexOf("terms of use") < apifyRun.out.indexOf("Apify LinkedIn") && apifyFetch.calls.length === 12 && apifyRun.rows.length === 4 && apifyRun.errors.length === 0,
+    `${apifyFetch.calls.length} calls; ${apifyRun.out}`);
+  t("Apify: every run sent the token as a Bearer header, never in the URL, and it is in no output or row",
+    apifyFetch.calls.every((c) => c.init.method === "POST" && c.init.headers.authorization === `Bearer ${FAKE.APIFY_TOKEN}` && !c.url.includes(FAKE.APIFY_TOKEN)) && leaks(apifyRun.out, apifyRun.errors, apifyRun.rows).length === 0, "leak");
+  for (const status of [401, 403]) {
+    const f = stubFetch(() => answer({ error: { type: "user-or-token-not-found", message: "User was not found or authentication token is not valid" } }, status));
+    const r = await runApi(FAKE, f, ["Apify LinkedIn", "Apify Indeed"]);
+    t(`Apify, HTTP ${status}: "key rejected (HTTP ${status})" for each actor, one call each, no token printed`,
+      r.errors.join("|") === `Apify LinkedIn: key rejected (HTTP ${status})|Apify Indeed: key rejected (HTTP ${status})` && f.calls.length === 2 && leaks(r.out, r.errors, r.rows).length === 0,
+      `${JSON.stringify(r.errors)} ${f.calls.length} calls`);
+  }
+  {
+    const f = stubFetch(() => answer({ error: { type: "not-enough-usage-to-run-paid-actor" } }, 402));
+    const r = await runApi(FAKE, f, ["Apify LinkedIn"]);
+    t("Apify, HTTP 402: a FAILED source that says to check the credit", r.errors[0] === "Apify LinkedIn: HTTP 402 — payment required: check your Apify credit", JSON.stringify(r.errors));
+  }
+  const apifyKept = matchJobs(apifyRun.rows, financeBlank).map((j) => `${j.source}:${j.title}`);
+  t(`Apify rows through matchJobs: "Senior Audit Manager" and "Financial Controller" dropped, the internships kept`,
+    apifyKept.join("|") === "apify-linkedin:Audit Intern - Summer 2027|apify-indeed:Finance Intern 2027", JSON.stringify(apifyKept));
+  {
+    // Every source at once with every fake key: 3 Adzuna + 3 Reed + 2 LinkedIn + 2 Indeed rows, no key anywhere.
+    const f = stubFetch((url) => answer(url.includes("adzuna") ? ADZUNA_FIXTURE : url.includes("/api/1.0/jobs/") ? REED_DETAILS : url.includes("reed") ? REED_FIXTURE : url.includes("indeed") ? INDEED_FIXTURE : LINKEDIN_FIXTURE, url.includes("apify") ? 201 : 200));
+    const r = await runApi(FAKE, f, API_SOURCES.map((x) => x.name), financeBlank, { keep: (rows) => matchJobs(rows, financeBlank) });
+    const kept = matchJobs(r.rows, financeBlank);
+    t(`all four sources together: ${r.rows.length} rows, ${kept.length} kept by matchJobs, none full-time, no key anywhere`,
+      r.rows.length === 10 && kept.length === 6 && kept.every((j) => /intern|placement/i.test(j.title)) && new Set(r.rows.map((x) => x.source)).size === 4 && leaks(r.out, r.errors, r.rows).length === 0,
+      `${r.rows.length} rows, ${kept.length} kept: ${JSON.stringify(kept.map((j) => j.title))}`);
+  }
 
   console.log(bad ? `\nself-test FAILED (${bad})` : "\nself-test passed — Junction parser accepts open events and rejects closed ones; scoring and filtering follow the profile");
   process.exit(bad ? 1 : 0);
