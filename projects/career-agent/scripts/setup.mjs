@@ -25,6 +25,7 @@ import os from "node:os";
 import path from "node:path";
 import readline from "node:readline";
 import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { FIELDS, answered, checkProfile, get, isDate, report, set } from "./profile-check.mjs";
 import { loadExample, profilePath, readJson } from "./profile.mjs";
 
@@ -364,7 +365,7 @@ function selfTest() {
   };
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "setup-selftest-"));
   const run = (file, answers) =>
-    spawnSync(process.execPath, [new URL(import.meta.url).pathname], {
+    spawnSync(process.execPath, [fileURLToPath(import.meta.url)], {
       input: answers.join("\n") + "\n",
       env: { ...process.env, CAREER_AGENT_PROFILE: file },
       encoding: "utf8",

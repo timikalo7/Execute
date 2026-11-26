@@ -18,6 +18,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { EXAMPLE_PROFILE, loadExample, profilePath, readJson } from "./profile.mjs";
 
 /** Read a dotted path with [n] indexes: get(p, "education[0].end"). */
@@ -274,7 +275,7 @@ function selfTest() {
 
   // The CLI, both ways: no profile file at all → exit 1 naming fields; the example → exit 0.
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "profilecheck-"));
-  const cli = (env) => spawnSync(process.execPath, [new URL(import.meta.url).pathname], { env: { ...process.env, ...env }, encoding: "utf8" });
+  const cli = (env) => spawnSync(process.execPath, [fileURLToPath(import.meta.url)], { env: { ...process.env, ...env }, encoding: "utf8" });
   const none = cli({ CAREER_AGENT_PROFILE: path.join(tmp, "nope.json") });
   check("CLI: no profile file → exit 1", none.status === 1, `exit ${none.status}`);
   check("CLI: ...and it names the missing fields", /identity\.name/.test(none.stdout) && /education\[0\]\.graduation_year/.test(none.stdout), none.stdout.slice(0, 300));

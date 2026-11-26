@@ -232,3 +232,21 @@ word excuses a senior one); "Analyst Training Program" and "Associate Program" a
 student word).
 
 Evaluation (separate agent): PASS — the filter keeps the real student roles and drops the full-time ones; tests go 226 to 240, other sources' URLs are identical, and no full-time J.P. Morgan CV folder is written.
+
+## 2026-11-26 — Windows: two self-tests started themselves by a path Windows cannot open
+
+**What broke.** The owner ran `npm test` on Windows (PowerShell 5.1) from a fresh clone. Four
+`profile-check` CLI rows failed (`CLI: the example profile → exit 0 → exit 1`, the "names the
+missing fields" rows printed nothing), and because `npm test` chains with `&&`, no later suite ran.
+Cause: the self-tests in `profile-check.mjs` and `setup.mjs` start a second copy of themselves with
+`new URL(import.meta.url).pathname`, which is `/C:/Users/…` on Windows — not a path Node can open —
+so the child exits 1 with no output. Two rows passed only because they expected exit 1.
+
+**Fix.** Both use `fileURLToPath(import.meta.url)` (the form `profile.mjs` and `decisions.mjs`
+already used). The tool itself was never affected: only the self-tests spawn by that path.
+Every other child-process call in the scripts already builds its path with `path.join` or
+`pathToFileURL`.
+
+**Proven here (Linux).** `npm test` exit 0, 240 PASS. `new URL("file:///C:/Users/x.mjs").pathname`
+gives `/C:/Users/x.mjs`; `fileURLToPath(…, { windows: true })` gives `C:\Users\x.mjs`.
+**Not checked here.** The rest of `npm test` on Windows: only the owner's re-run proves it.
