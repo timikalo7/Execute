@@ -619,15 +619,16 @@ separate evaluation had named the same risk ("media" kept "Data Analytics Intern
   phrase ("Social media intern" gives "social media"). `target.title_keywords` is used exactly as
   written, weak words included.
 - `fieldNarrow(profile)`: null for a tech profile. Otherwise a title matching `CS_CORE_RE` (software,
-  developer(s), engineer, engineering, quant, quantitative, machine learning, cyber, devops, full
-  stack, back end, front end, programmer, programming) is dropped unless one of the profile's own
-  field words matches it, and a title matching `\bapprentice(ship)?s?\b` is dropped unless
-  `target.roles` or `target.title_keywords` contain "apprentice". Both `matchJobs` and
-  `fieldOpportunities` apply it; `jobs/manual.json` rows always stay.
-- `fieldFingerprint` for a non-tech profile adds `|cs:kept` or `|cs:dropped`, then `|apprentice:kept` or
-  `|apprentice:dropped`. A
-  finance board stored under the old rules has the same field words, so without this it would keep its
-  old CS rows; now it is cleared once. The tech fingerprint is unchanged (still the legacy one).
+  developer(s), engineer, engineering, machine learning, cyber, devops, full stack, back end, front
+  end, programmer, programming) is dropped unless one of the profile's own field words matches it, and
+  a title matching `\bapprentice(ship)?s?\b` is dropped unless `target.roles` or
+  `target.title_keywords` contain "apprentice". The apprentice rule skips rows of kind "event"; the
+  CS rule does not. Both `matchJobs` and `fieldOpportunities` apply it; `jobs/manual.json` rows always
+  stay.
+- `fieldFingerprint` for a non-tech profile adds `|cs:kept` or `|cs:dropped`, then `|apprentice:kept`
+  or `|apprentice:dropped`. A finance board stored under the old rules has the same field words, so
+  without this it would keep its old CS rows; now it is cleared once. The tech fingerprint is
+  unchanged (still the legacy one).
 - README: one line in "Not studying computer science?".
 
 **Decisions.**
@@ -640,39 +641,55 @@ separate evaluation had named the same risk ("media" kept "Data Analytics Intern
 - The CS and apprentice rules in `matchJobs` skip a `source: "manual"` row. `main()` never passes manual
   rows to `matchJobs`, so this only matters if a caller does.
 - The self-test names the persona `marketer`, not a person's name.
+- Follow-up from the coordinator, same day. (1) "quant" and "quantitative" were taken out of
+  `CS_CORE_RE`: quant research internships are finance roles, and for marketing the Keyrock quant
+  titles are already dropped by the field filter (no field word matches). Three self-test rows were
+  rewritten because the rule deliberately changed: the "own field word unlocks CS core" row uses
+  "engineering" instead of "quant", the DeFi row is relabelled (quant is a field word there, not an
+  unlock), and the matching fingerprint row uses the engineering profile. (2) The apprentice rule
+  skips kind "event": "2027 Insight into Finance Apprenticeships" is an insight event.
 
 **Proven.**
-- `npm test` exits 0: 420 PASS before, 470 after (+50, all in discover: 180 to 230). The never-submit
+- `npm test` exits 0: 420 PASS before, 479 after (+59, all in discover: 180 to 239). The never-submit
   rows still pass.
 - `matchJobs` and `fieldOpportunities` run directly on the ticket's titles: all ten board titles
   dropped on this branch (origin/main kept all ten in the list path, six in the board path);
   "Data Science & Marketing Effectiveness Intern" and "Marketing & Operations Analytics Co-op" still
   kept by the list path. Finance keeps "Summer Analyst - Markets", "Audit Intern 2027" and
-  "Investment Banking Summer Internship", and drops "Software Engineer Intern" and "Global Markets
-  Intern - Markets Engineering" (origin/main kept the second).
-- Tech example, scratch clones of origin/main and this branch, back to back: 2723 postings, the same 8
-  job-board matches, stdout byte-identical (6520 bytes), the same 57 found.json rows (source, kind,
-  URL, title, score, verdict, tier). stderr differs only in the clone's path.
+  "Investment Banking Summer Internship", and "2027 Quantitative Research Markets Associate Program –
+  Off-Cycle Internship – London", and the Morgan Stanley "Insight into Finance Apprenticeships" row as
+  an event (dropped as a job). It drops "Software Engineer Intern" and "Global Markets Intern -
+  Markets Engineering" (origin/main kept the second).
+- Tech example, scratch clones of origin/main and this branch, back to back (re-run after the
+  follow-up): 2724 postings, the same 8 job-board matches and URLs, stdout byte-identical, the same 57
+  found.json rows (source, kind, URL, title, score, verdict, tier). stderr differs only in the clone's
+  path.
 - Marketing profile (the earlier persona profile, boost `["digital marketing", "social media",
-  "Canva"]`), same 2109 postings: origin/main kept 14 rows, 8 of them CS, quant, cyber or
+  "Canva"]`), same 2108 postings: origin/main kept 14 rows, 8 of them CS, quant, cyber or
   apprenticeship titles; this branch keeps 2 ("Data Science & Marketing Effectiveness Intern",
-  "Marketing & Operations Analytics Co-op - Strategy & Analytics"), none CS or apprenticeship.
-- Finance profile, live: origin/main kept 4 rows, this branch 2. The two dropped are "2027
-  Quantitative Research Markets Associate Program – Off-Cycle Internship – London" (CS core) and the
-  Morgan Stanley event "2027 Insight into Finance Apprenticeships" (apprentice rule).
-- The rows can fail: 22 of 22 mutants in a scratch copy outside the repository turned the discover
+  "Marketing & Operations Analytics Co-op - Strategy & Analytics"), none CS, quant or apprenticeship.
+  A board written by origin/main is cleared on the first branch run ("your field changed since the
+  last run — previous board cleared (14 row(s) removed …)"; measured at 7958ae8, before the
+  follow-up, which does not change this fingerprint).
+- Finance profile, live: origin/main and this branch both keep the same 4 rows today, among them the
+  quant research internship and the Morgan Stanley apprenticeships insight event. (Before the
+  follow-up, this branch dropped those two.)
+- The rows can fail: 29 of 29 mutants in a scratch copy outside the repository turned the discover
   self-test red (weak list empty, weak words counted alone, no phrase, phrase dropped, title_keywords
   filtered, one weak word missing, CS rule off, CS always allowed, CS never allowed, no "cyber",
   apprentice rule off, apprentice always or never allowed, apprentice read from boost keywords,
   title_keywords ignored, only "apprenticeship" matched, either path not calling the rule, either
-  path dropping manual rows, the rule applied to tech, fingerprint without the switches).
+  path dropping manual rows, the rule applied to tech, "quant" and/or "quantitative" back in
+  `CS_CORE_RE` (three mutants), the event exemption removed, the apprentice rule skipped for every
+  kind, events skipping the CS rule too, `fieldOpportunities` not passing the kind, fingerprint
+  without the switches). Not covered: `matchJobs` not passing the kind is an equivalent mutant,
+  because job-board rows never have kind "event".
 
 **Consequences for the owner to decide.**
 - The marketing board is now 2 rows, both ruled out by eligibility on the day: the general sources
   list and Simplify hold almost no UK marketing internships. The filter is right; the supply is thin.
-- A finance student who wants quant roles loses them unless a field word says so (e.g. boost keyword
-  "quant"). Apprenticeship insight events are dropped for everyone who does not ask for
-  apprenticeships.
+- A finance student who wants software or engineering roles loses them unless a field word says so
+  (e.g. boost keyword "engineering"). Quant titles now depend on the field filter alone.
 
 **Not checked.** Windows and macOS; `npm run daily` after discover (tailor, pdf, dashboard) on the
 new board. Live numbers depend on what employers post on the day.

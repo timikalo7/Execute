@@ -121,7 +121,7 @@ keeps only postings whose title names a word from your roles; words of three let
 are skipped. If titles in your field use other words, add `target.title_keywords`, e.g. `["law", "legal"]`;
 only those words are then used. Add employers in your field to `jobs/sources.json` with
 `node scripts/probe-sources.mjs "Company"`.
-Broad words such as "digital", "media" or "data" never count alone ("Social media intern" counts as the phrase "social media"), and software, engineering, quant or cyber titles and apprenticeships are left out unless your roles or `target.title_keywords` name them.
+Broad words such as "digital", "media" or "data" never count alone ("Social media intern" counts as the phrase "social media"), and software, engineering or cyber titles and apprenticeships (not insight events) are left out unless your roles or `target.title_keywords` name them.
 
 A few things change for a profile outside tech. `npm run profile:check` does not ask for a GitHub
 link, and the challenge question asks for the hardest challenge you solved, technical or not. If your
