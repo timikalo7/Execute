@@ -39,7 +39,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { assess } from "./eligibility.mjs";
 import { rank } from "./bar.mjs";
-import { decisions, isDecided } from "./decisions.mjs";
+import { decisions, isDecided, normalizeUrl } from "./decisions.mjs";
+import { API_SOURCES, apiQueries, fetchApiSources, fetchWithTimeout, MAX_QUERIES, redactUrl, scrub } from "./sources-api.mjs";
 import { barConfig, boostKeywords, fromHeader, homeRegex, inRange, intake, intakeLabel, isTechSector, loadExample, loadProfile, PROJECT_ROOT, SOURCES_EXAMPLE, SOURCES_GENERAL_EXAMPLE, sourcesFileFor, targetCountries, TECH_RE, termsRegex, userAgent } from "./profile.mjs";
 
 const ROOT = process.cwd();
@@ -688,6 +689,13 @@ async function main() {
     }
   }
 
+  // JOB APIS (scripts/sources-api.mjs): Adzuna and more, each only when its free key is set. With
+  // no key: one "not configured" line and no network call. Their rows join the job-board rows, so
+  // matchJobs below gives them the very same filter (internship, field, exclusions, location).
+  const api = await fetchApiSources(profile, { known: new Set(all.map((j) => normalizeUrl(j.url))) });
+  all.push(...api.rows);
+  errors.push(...api.errors);
+
   console.error("\n  --- opportunities (hackathons, events, programmes) ---");
   const opp = await fetchOpportunities(profile);
   errors.push(...opp.errors);
@@ -845,7 +853,9 @@ async function main() {
     console.error(`\nwrote ${FOUND} (${merged.length} total, ${fresh.length} added)`);
   }
   // Fail loudly if EVERY source broke — that means the run produced nothing and should not look calm.
-  if (errors.length && errors.length === sources.tier1.length) {
+  // A failed job API is reported above, but it is not one of the boards this check counts.
+  const notApi = errors.length - api.errors.length;
+  if (notApi && notApi === sources.tier1.length) {
     console.error("\nRESULT: FAIL — every source failed. This is not 'no jobs today'.");
     process.exit(1);
   }
@@ -1126,6 +1136,141 @@ async function selfTest() {
   t("main() checks the board with boardForField and prints the line", /boardForField\(stored, fingerprint\)/.test(mainSrc) && mainSrc.includes("your field changed since the last run — previous board cleared"), "not wired");
   t("main() merges into the checked board, not the stored one", /const prev = \{ \.\.\.stored, jobs: board\.jobs \}/.test(mainSrc) && /const merged = \[\.\.\.prev\.jobs\]/.test(mainSrc), "not wired");
   t("main() writes the fingerprint into found.json", /field_fingerprint: fingerprint/.test(mainSrc), "not wired");
+
+  // JOB APIS (scripts/sources-api.mjs). A stubbed fetch throughout: no network, no real key. The
+  // fake keys below must never appear in anything the tool prints, returns or stores.
+  const FAKE = {
+    ADZUNA_APP_ID: "fakeid-7f3a91",
+    ADZUNA_APP_KEY: "fakekey-c0ffee-0123456789",
+  };
+  const FAKE_VALUES = Object.values(FAKE);
+  const leaks = (...things) => FAKE_VALUES.filter((v) => things.some((x) => JSON.stringify(x ?? "").includes(v)));
+  const stubFetch = (respond) => {
+    const calls = [];
+    const f = async (url, init) => {
+      calls.push({ url, init });
+      return respond(url, init, calls.length);
+    };
+    f.calls = calls;
+    return f;
+  };
+  const answer = (body, status = 200) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
+  const runApi = async (env, fetchImpl, only, profile = financeBlank, extra = {}) => {
+    const out = [];
+    const res = await fetchApiSources(profile, { env, fetchImpl, log: (m) => out.push(m), pauseMs: 0, sources: API_SOURCES.filter((s) => only.includes(s.name)), ...extra });
+    return { ...res, out: out.join("\n") };
+  };
+  const src = (name) => API_SOURCES.find((s) => s.name === name);
+  const q0 = { role: "Audit intern", location: "Edinburgh" };
+  const showRequest = (name, env) => {
+    const req = src(name).request(q0, env);
+    const auth = Object.keys(req.headers || {}).some((h) => h.toLowerCase() === "authorization");
+    return { req, auth, line: `${req.method} ${redactUrl(req.url)} · auth header: ${auth ? "yes" : "no"}` };
+  };
+
+  // The searches: target.roles × target.locations, capped at 10.
+  const plan = apiQueries(financeBlank);
+  t(`queries are roles × locations (${plan.queries.length} = 3 × 2)`, plan.queries.length === 6 && plan.total === 6 && plan.queries[0].role === "Investment banking summer analyst" && plan.queries[1].location === "London", JSON.stringify(plan.queries));
+  const wide = withTarget({ sector: "Finance", roles: ["Audit intern", "Tax intern", "Finance placement", "Banking intern"], locations: ["London", "Edinburgh", "Leeds"] });
+  t(`queries are capped at ${MAX_QUERIES} (4 × 3 = 12 asked)`, apiQueries(wide).queries.length === MAX_QUERIES && apiQueries(wide).total === 12, JSON.stringify(apiQueries(wide)));
+  t("no roles: no queries", apiQueries(withTarget({ roles: [] })).queries.length === 0, "queries");
+  t("redactUrl drops the query string", redactUrl("https://x.test/a?app_key=s3cret&b=1") === "https://x.test/a?[query redacted]" && redactUrl("https://x.test/a") === "https://x.test/a", redactUrl("https://x.test/a?app_key=s3cret"));
+  t("scrub replaces every copy of a secret", scrub("k=abcdef and abcdef", ["abcdef"]) === "k=[redacted] and [redacted]", scrub("k=abcdef and abcdef", ["abcdef"]));
+
+  // ADZUNA. The fixture is the documented shape (results[] of Job: id, title, description, created,
+  // redirect_url, location.display_name/area, company.display_name, category, contract_time).
+  const ADZUNA_FIXTURE = {
+    count: 3,
+    mean: 24000,
+    results: [
+      { id: "4100000001", title: "Audit Intern 2027", description: "Join our <strong>audit</strong> team for a ten-week summer internship.", created: "2026-11-20T09:00:00Z", redirect_url: "https://www.adzuna.co.uk/jobs/land/ad/4100000001?se=abc&v=1", adref: "eyJhbGci", location: { display_name: "Edinburgh, Scotland", area: ["UK", "Scotland", "Edinburgh"] }, company: { display_name: "Example Audit LLP" }, category: { tag: "accounting-finance-jobs", label: "Accounting & Finance Jobs" }, contract_time: "full_time", contract_type: "contract" },
+      { id: "4100000002", title: "Senior Financial Analyst", description: "Five years' experience in FP&A.", created: "2026-11-19T09:00:00Z", redirect_url: "https://www.adzuna.co.uk/jobs/land/ad/4100000002?se=abc&v=1", location: { display_name: "London, UK", area: ["UK", "London"] }, company: { display_name: "Example Bank" }, category: { tag: "accounting-finance-jobs", label: "Accounting & Finance Jobs" }, contract_time: "full_time", contract_type: "permanent" },
+      { id: "4100000003", title: "Investment Banking Summer Internship", description: "Summer 2027.", created: "2026-11-18T09:00:00Z", redirect_url: `https://www.adzuna.co.uk/jobs/land/ad/4100000003?a=${FAKE.ADZUNA_APP_ID}`, location: { area: ["UK", "London"] }, company: { display_name: "Example Capital" }, category: { tag: "accounting-finance-jobs", label: "Accounting & Finance Jobs" } },
+    ],
+  };
+  const adz = src("Adzuna").parse(ADZUNA_FIXTURE);
+  t(`Adzuna: the documented answer gives ${adz.length} rows`, adz.length === 3, String(adz.length));
+  t("Adzuna: a row has the job-board shape",
+    JSON.stringify(adz[0]) === JSON.stringify({ source: "adzuna", kind: "job", company: "Example Audit LLP", title: "Audit Intern 2027", location: "Edinburgh, Scotland", url: "https://www.adzuna.co.uk/jobs/land/ad/4100000001?se=abc&v=1", posted: "2026-11-20T09:00:00Z", description: "Join our audit team for a ten-week summer internship." }),
+    JSON.stringify(adz[0]));
+  t("Adzuna: location falls back to the area list", adz[2].location === "UK, London", adz[2].location);
+  t("Adzuna: an unexpected answer gives no rows and does not throw", [null, {}, { results: null }, []].every((d) => Array.isArray(src("Adzuna").parse(d)) && src("Adzuna").parse(d).length === 0), "threw or rows");
+  const adzReq = showRequest("Adzuna", FAKE);
+  const adzUrl = new URL(adzReq.req.url);
+  t(`Adzuna request: ${adzReq.line}`,
+    adzReq.req.method === "GET" && adzUrl.origin + adzUrl.pathname === "https://api.adzuna.com/v1/api/jobs/gb/search/1" &&
+      adzUrl.searchParams.get("app_id") === FAKE.ADZUNA_APP_ID && adzUrl.searchParams.get("app_key") === FAKE.ADZUNA_APP_KEY &&
+      adzUrl.searchParams.get("what") === "Audit intern" && adzUrl.searchParams.get("where") === "Edinburgh" &&
+      Number(adzUrl.searchParams.get("results_per_page")) <= 50 && !adzReq.auth && leaks(adzReq.line).length === 0,
+    adzReq.req.url.replace(FAKE.ADZUNA_APP_KEY, "KEY"));
+
+  // No key, no call — and a half-set key is no key.
+  for (const [label, env] of [["no keys at all", {}], ["only ADZUNA_APP_ID", { ADZUNA_APP_ID: FAKE.ADZUNA_APP_ID }], ["keys set to spaces", { ADZUNA_APP_ID: " ", ADZUNA_APP_KEY: " " }]]) {
+    const f = stubFetch(() => answer(ADZUNA_FIXTURE));
+    const r = await runApi(env, f, ["Adzuna"]);
+    t(`Adzuna, ${label}: no fetch, the "not configured" line, not a failure`,
+      f.calls.length === 0 && r.out.includes("Adzuna: not configured — set ADZUNA_APP_ID and ADZUNA_APP_KEY (free key: developer.adzuna.com/signup)") && r.errors.length === 0 && r.rows.length === 0,
+      `${f.calls.length} calls; ${r.out}; ${r.errors}`);
+  }
+  // A refused key is a FAILED source; the key is in no output, no error, no row.
+  for (const status of [401, 403, 410]) {
+    const f = stubFetch(() => answer({ exception: "AUTH_FAIL", display: "Authorisation failed" }, status));
+    const r = await runApi(FAKE, f, ["Adzuna"]);
+    t(`Adzuna, HTTP ${status}: "Adzuna: key rejected (HTTP ${status})", one call, no key printed`,
+      r.errors.length === 1 && r.errors[0] === `Adzuna: key rejected (HTTP ${status})` && f.calls.length === 1 && r.out.includes(`FAILED — key rejected (HTTP ${status})`) && leaks(r.out, r.errors, r.rows).length === 0,
+      `${JSON.stringify(r.errors)} ${f.calls.length} calls leaks=${leaks(r.out, r.errors, r.rows).length}`);
+  }
+  {
+    const f = stubFetch(() => {
+      throw new Error(`connect ECONNREFUSED https://api.adzuna.com/v1/api/jobs/gb/search/1?app_id=${FAKE.ADZUNA_APP_ID}&app_key=${FAKE.ADZUNA_APP_KEY}`);
+    });
+    const r = await runApi(FAKE, f, ["Adzuna"]);
+    t("Adzuna: a network error that quotes the key is scrubbed before it is printed", r.errors.length === 1 && r.errors[0].includes("[redacted]") && leaks(r.out, r.errors).length === 0, JSON.stringify(r.errors).replaceAll(FAKE.ADZUNA_APP_KEY, "KEY"));
+  }
+  {
+    const f = stubFetch((url, init) => new Promise((_, reject) => init.signal.addEventListener("abort", () => reject(new Error("aborted")))));
+    const started = Date.now();
+    let got;
+    try {
+      await fetchWithTimeout(f, "https://x.test/", {}, 50);
+      got = "resolved";
+    } catch (e) {
+      got = e.message;
+    }
+    t("a hung request is aborted by its timeout (the timer fires)", /^timed out after/.test(got) && Date.now() - started < 2000, got);
+  }
+  t("every API source has a timeout of 5 minutes or less", API_SOURCES.every((s) => s.timeoutMs > 0 && s.timeoutMs <= 300000), JSON.stringify(API_SOURCES.map((s) => [s.name, s.timeoutMs])));
+  // A working key: every query is asked, duplicates collapse, the key leaves no trace in the rows.
+  const adzFetch = stubFetch(() => answer(ADZUNA_FIXTURE));
+  const adzRun = await runApi(FAKE, adzFetch, ["Adzuna"]);
+  t(`Adzuna, working key: ${adzFetch.calls.length} calls for 6 queries, 3 rows after de-duplication, the count printed`,
+    adzFetch.calls.length === 6 && adzRun.rows.length === 3 && adzRun.errors.length === 0 && adzRun.out.includes("6 queries (3 role(s) × 2 location(s))") && adzRun.out.includes("3 postings"),
+    `${adzFetch.calls.length} calls, ${adzRun.rows.length} rows; ${adzRun.out}`);
+  t("Adzuna: a key inside a result URL is scrubbed before the row is stored", leaks(adzRun.rows).length === 0 && adzRun.rows[2]?.url.endsWith("?a=[redacted]"), String(adzRun.rows[2]?.url).replace(FAKE.ADZUNA_APP_ID, "ID"));
+  {
+    const f = stubFetch(() => answer(ADZUNA_FIXTURE));
+    const r = await runApi(FAKE, f, ["Adzuna"], wide);
+    t(`Adzuna: 12 searches asked, ${f.calls.length} made, "capped at 10" printed`, f.calls.length === 10 && r.out.includes("12, capped at 10"), `${f.calls.length}; ${r.out}`);
+  }
+  {
+    const f = stubFetch(() => answer(ADZUNA_FIXTURE));
+    const r = await runApi(FAKE, f, ["Adzuna"], financeBlank, { known: new Set([normalizeUrl(ADZUNA_FIXTURE.results[0].redirect_url)]) });
+    t("Adzuna: a posting already on this run's board is not added twice", r.rows.length === 2 && !r.rows.some((x) => x.title === "Audit Intern 2027"), JSON.stringify(r.rows.map((x) => x.title)));
+  }
+  {
+    let n = 0;
+    const f = stubFetch(() => (++n === 1 ? answer(ADZUNA_FIXTURE) : answer({}, 429)));
+    const r = await runApi(FAKE, f, ["Adzuna"]);
+    t("Adzuna: HTTP 429 mid-run stops the source, keeps what it found, and reports it", f.calls.length === 2 && r.rows.length === 3 && r.errors[0] === "Adzuna: HTTP 429" && r.out.includes("after 1 of 6 queries (3 postings kept)"), `${f.calls.length} ${JSON.stringify(r.errors)} ${r.out}`);
+  }
+  // THE SAME FILTERS: an API row is a job-board row. A full-time title is dropped, a field internship
+  // kept — by matchJobs, the function main() runs over every job-board row.
+  const adzKept = matchJobs(adzRun.rows, financeBlank).map((j) => j.title);
+  t(`Adzuna rows through matchJobs: "Senior Financial Analyst" dropped, the internships kept`, adzKept.join("|") === "Audit Intern 2027|Investment Banking Summer Internship", JSON.stringify(adzKept));
+  t("Adzuna rows through matchJobs for the tech example: no finance internship kept", matchJobs(adzRun.rows, ex).length === 0, JSON.stringify(matchJobs(adzRun.rows, ex).map((j) => j.title)));
+  const apiAt = mainSrc.indexOf("all.push(...api.rows)");
+  t("main() adds the API rows to the job-board rows before matchJobs", /fetchApiSources\(profile/.test(mainSrc) && apiAt > 0 && apiAt < mainSrc.indexOf("matchJobs(all, profile)"), "not wired");
+  t("main() lists a failed API source with the other failures", /errors\.push\(\.\.\.api\.errors\)/.test(mainSrc), "not wired");
 
   console.log(bad ? `\nself-test FAILED (${bad})` : "\nself-test passed — Junction parser accepts open events and rejects closed ones; scoring and filtering follow the profile");
   process.exit(bad ? 1 : 0);
