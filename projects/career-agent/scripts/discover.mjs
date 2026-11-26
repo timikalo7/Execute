@@ -155,9 +155,10 @@ const APPRENTICE_RE = /\bapprentice(ship)?s?\b/i;
 
 /**
  * What a profile with its own field words leaves out even when the title names the field. Pure.
- * null for a tech profile (nothing more is left out). Otherwise { csOk, apprenticeOk, drops(title) }:
+ * null for a tech profile (nothing more is left out). Otherwise { csOk, apprenticeOk, drops(title, kind) }:
  *   - a CS_CORE_RE title is dropped unless one of the profile's own field words matches CS_CORE_RE;
  *   - an APPRENTICE_RE title is dropped unless target.roles or target.title_keywords say "apprentice".
+ *     Not for a row of kind "event": "Insight into Finance Apprenticeships" is an insight event.
  * Callers keep hand-added jobs/manual.json rows whatever this says.
  */
 export function fieldNarrow(profile) {
@@ -167,7 +168,7 @@ export function fieldNarrow(profile) {
   const asked = [].concat(Array.isArray(t.roles) ? t.roles : [], Array.isArray(t.title_keywords) ? t.title_keywords : []);
   const csOk = words.some((w) => CS_CORE_RE.test(w));
   const apprenticeOk = asked.some((r) => /apprentice/i.test(String(r)));
-  return { csOk, apprenticeOk, drops: (title) => (!csOk && CS_CORE_RE.test(title)) || (!apprenticeOk && APPRENTICE_RE.test(title)) };
+  return { csOk, apprenticeOk, drops: (title, kind) => (!csOk && CS_CORE_RE.test(title)) || (!apprenticeOk && kind !== "event" && APPRENTICE_RE.test(title)) };
 }
 
 /**
@@ -180,7 +181,7 @@ export function fieldOpportunities(rows, profile) {
   if (!fieldWords(profile).words) return rows;
   const field = fieldWordsRe(profile);
   const { drops } = fieldNarrow(profile);
-  return rows.filter((o) => o.source === "manual" || (field.test(String(o.title || "")) && !drops(String(o.title || ""))));
+  return rows.filter((o) => o.source === "manual" || (field.test(String(o.title || "")) && !drops(String(o.title || ""), o.kind)));
 }
 
 /**
@@ -223,7 +224,7 @@ export function matchJobs(all, profile) {
   return all
     .filter((j) => intern(j.title) && !exclude.test(j.title))
     .filter((j) => field.test(j.title))
-    .filter((j) => !narrow || j.source === "manual" || !narrow.drops(j.title))
+    .filter((j) => !narrow || j.source === "manual" || !narrow.drops(j.title, j.kind))
     .filter((j) => inRange(j.location, profile) || inRange(j.title, profile));
 }
 
@@ -1221,6 +1222,15 @@ async function selfTest() {
   t(`a role "Marketing apprentice" keeps it (list and board)`, bothKeep(marketerApprentice, APPRENTICE_PLACEMENT), "dropped");
   const boostApprentice = { ...marketer, target: { ...marketer.target, roles: ["Marketing intern"], boost_keywords: ["apprentice"] } };
   const roleApprentice = { ...marketer, target: { ...marketer.target, roles: ["Marketing apprentice"], boost_keywords: [] } };
+  // An insight EVENT about apprenticeships is not an apprenticeship: the rule skips kind "event".
+  const MS_EVENT = "2027 Insight into Finance Apprenticeships at Morgan Stanley (London)";
+  const asKind = (title, kind) => ({ ...inLondon(title), source: "morgan-stanley", kind });
+  t(`finance keeps the event "${MS_EVENT}"`, fieldOpportunities([asKind(MS_EVENT, "event")], finance).length === 1, "dropped");
+  t(`finance drops the same title as kind "job"`, fieldOpportunities([asKind(MS_EVENT, "job")], finance).length === 0, "kept");
+  const softwareOwn = own(["digital", "software"]);
+  t(`title_keywords ["digital", "software"]: "Digital Apprentice - Software Development" as kind "job" is still dropped`, fieldOpportunities([{ ...listed("Digital Apprentice - Software Development"), kind: "job" }], softwareOwn).length === 0, "kept");
+  t(`...and kept as kind "event" (only the apprentice rule differs)`, fieldOpportunities([{ ...listed("Digital Apprentice - Software Development"), kind: "event" }], softwareOwn).length === 1, "dropped");
+  t(`events still follow the CS rule: "Finance Cyber Security Insight Evening" dropped for finance`, fieldOpportunities([asKind("Finance Cyber Security Insight Evening", "event")], finance).length === 0, "kept");
   t(`boost "apprentice" alone does not ask for apprenticeships; a role does`, !listKeeps(boostApprentice, APPRENTICE_PLACEMENT) && listKeeps(roleApprentice, APPRENTICE_PLACEMENT), "wrong");
   t(`board: hand-added CS and apprentice titles stay; the same rows not hand-added drop`, matchJobs([{ ...inLondon(APPRENTICE_PLACEMENT), source: "manual" }, { ...inLondon(CYBER), source: "manual" }], own(["marketing", "digital"])).length === 2 && matchJobs([inLondon(APPRENTICE_PLACEMENT), inLondon(CYBER)], own(["marketing", "digital"])).length === 0, "wrong");
 
