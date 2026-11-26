@@ -1161,14 +1161,14 @@ async function selfTest() {
   // placement"; boost "digital marketing") was shown quant, cyber and software-apprenticeship roles,
   // each through the bare word "digital". A weak word never counts alone, a role or keyword made only
   // of weak words is one phrase, and target.title_keywords stay exactly as the user wrote them.
-  const maya = withTarget({
+  const marketer = withTarget({
     sector: "Marketing",
     roles: ["Marketing intern", "Social media intern", "Brand placement"],
     boost_keywords: ["digital marketing", "social media", "Canva"],
     locations: ["London"],
   });
   const wordsOf = (over) => fieldWords(withTarget({ sector: "Marketing", boost_keywords: [], ...over })).words.join(",");
-  t("marketing field words are marketing, social media, brand, canva", fieldWords(maya).words.join(",") === "marketing,social media,brand,canva", fieldWords(maya).words.join(","));
+  t("marketing field words are marketing, social media, brand, canva", fieldWords(marketer).words.join(",") === "marketing,social media,brand,canva", fieldWords(marketer).words.join(","));
   t(`boost "digital marketing" gives "marketing" only`, wordsOf({ roles: ["Marketing intern"], boost_keywords: ["digital marketing"] }) === "marketing", wordsOf({ roles: ["Marketing intern"], boost_keywords: ["digital marketing"] }));
   t(`role "Social media intern" gives the one phrase "social media"`, wordsOf({ roles: ["Social media intern"] }) === "social media", wordsOf({ roles: ["Social media intern"] }));
   t(`sales field words are sales, development ("business" is weak)`, fieldWords(sales).words.join(",") === "sales,development", fieldWords(sales).words.join(","));
@@ -1176,15 +1176,15 @@ async function selfTest() {
   const weakLeak = weakList.filter((w) => wordsOf({ roles: [`${w} marketing intern`] }) !== "marketing");
   t(`all ${weakList.length} weak words are dropped next to "marketing"`, weakList.length === 21 && weakLeak.length === 0, JSON.stringify(weakLeak));
   t(`title_keywords keep weak words as written ("Digital", "media")`, wordsOf({ title_keywords: ["Digital", "media"] }) === "digital,media", wordsOf({ title_keywords: ["Digital", "media"] }));
-  const mayaRe = fieldWordsRe(maya);
-  t(`marketing: the phrase matches "Social Media Intern"`, mayaRe.test("Social Media Intern"), String(mayaRe));
+  const marketerRe = fieldWordsRe(marketer);
+  t(`marketing: the phrase matches "Social Media Intern"`, marketerRe.test("Social Media Intern"), String(marketerRe));
   for (const title of ["Media Product Intern", "Data and Analytics Intern - Customer and Digital", "Data Analytics Intern - Media Handling", "Digital Apprentice - Software Development"])
-    t(`marketing: no weak word alone matches "${title}"`, !mayaRe.test(title), String(mayaRe));
+    t(`marketing: no weak word alone matches "${title}"`, !marketerRe.test(title), String(marketerRe));
 
   // CS CORE AND APPRENTICESHIPS, non-tech only. Every title from that marketing board, through both
   // paths: an opportunity-list row (fieldOpportunities) and a job-board row (matchJobs, which also
   // needs an internship word, as before). Hand-added rows always stay.
-  const MAYA_DROPPED = [
+  const BOARD_DROPPED = [
     "Quantitative Analyst Intern - Digital Assets Market Making - High-Frequency Trading",
     "DeFi Quant Research Intern - Digital Assets Market Making",
     "Digital & Technology Solutions Degree Apprenticeship",
@@ -1196,15 +1196,15 @@ async function selfTest() {
     "Data and Analytics Intern - Customer and Digital",
     "Data Analytics Intern - Media Handling",
   ];
-  const MAYA_KEPT = ["Data Science & Marketing Effectiveness Intern", "Marketing & Operations Analytics Co-op - Strategy & Analytics"];
+  const BOARD_KEPT = ["Data Science & Marketing Effectiveness Intern", "Marketing & Operations Analytics Co-op - Strategy & Analytics"];
   const listed = (title, source = "simplify") => ({ ...inLondon(title), source, kind: "job" });
   const listKeeps = (p, title, source) => fieldOpportunities([listed(title, source)], p).length === 1;
   const bothKeep = (p, title) => listKeeps(p, title) && keeps(p, title);
   const neitherKeeps = (p, title) => !listKeeps(p, title) && !keeps(p, title);
-  for (const title of MAYA_DROPPED) t(`marketing drops "${title}" (list and board)`, neitherKeeps(maya, title), "kept");
-  for (const title of MAYA_KEPT) t(`marketing list keeps "${title}"`, listKeeps(maya, title), "dropped");
-  for (const title of ["Data Science & Marketing Effectiveness Intern", "Social Media Intern"]) t(`marketing board keeps "${title}"`, keeps(maya, title), "dropped");
-  t(`marketing: all ${MAYA_DROPPED.length} dropped titles stay when hand-added (jobs/manual.json)`, MAYA_DROPPED.every((title) => listKeeps(maya, title, "manual")), "dropped");
+  for (const title of BOARD_DROPPED) t(`marketing drops "${title}" (list and board)`, neitherKeeps(marketer, title), "kept");
+  for (const title of BOARD_KEPT) t(`marketing list keeps "${title}"`, listKeeps(marketer, title), "dropped");
+  for (const title of ["Data Science & Marketing Effectiveness Intern", "Social Media Intern"]) t(`marketing board keeps "${title}"`, keeps(marketer, title), "dropped");
+  t(`marketing: all ${BOARD_DROPPED.length} dropped titles stay when hand-added (jobs/manual.json)`, BOARD_DROPPED.every((title) => listKeeps(marketer, title, "manual")), "dropped");
 
   // Each rule on its own: profiles whose field words DO match the title, so only that rule can drop it.
   const own = (title_keywords) => withTarget({ sector: "Marketing", roles: ["Marketing intern"], boost_keywords: [], title_keywords, locations: ["London"] });
@@ -1215,11 +1215,11 @@ async function selfTest() {
   t(`title_keywords ["digital", "cyber"] keeps it (list and board)`, bothKeep(own(["digital", "cyber"]), CYBER), "dropped");
   t(`title_keywords ["digital"]: apprenticeships drop "${DTS}"`, !listKeeps(own(["digital"]), DTS), "kept");
   t(`title_keywords ["digital", "apprenticeship"] keeps it`, listKeeps(own(["digital", "apprenticeship"]), DTS), "dropped");
-  t(`marketing drops "${APPRENTICE_PLACEMENT}" (list and board)`, neitherKeeps(maya, APPRENTICE_PLACEMENT), "kept");
-  const mayaApprentice = { ...maya, target: { ...maya.target, roles: [...maya.target.roles, "Marketing apprentice"] } };
-  t(`a role "Marketing apprentice" keeps it (list and board)`, bothKeep(mayaApprentice, APPRENTICE_PLACEMENT), "dropped");
-  const boostApprentice = { ...maya, target: { ...maya.target, roles: ["Marketing intern"], boost_keywords: ["apprentice"] } };
-  const roleApprentice = { ...maya, target: { ...maya.target, roles: ["Marketing apprentice"], boost_keywords: [] } };
+  t(`marketing drops "${APPRENTICE_PLACEMENT}" (list and board)`, neitherKeeps(marketer, APPRENTICE_PLACEMENT), "kept");
+  const marketerApprentice = { ...marketer, target: { ...marketer.target, roles: [...marketer.target.roles, "Marketing apprentice"] } };
+  t(`a role "Marketing apprentice" keeps it (list and board)`, bothKeep(marketerApprentice, APPRENTICE_PLACEMENT), "dropped");
+  const boostApprentice = { ...marketer, target: { ...marketer.target, roles: ["Marketing intern"], boost_keywords: ["apprentice"] } };
+  const roleApprentice = { ...marketer, target: { ...marketer.target, roles: ["Marketing apprentice"], boost_keywords: [] } };
   t(`boost "apprentice" alone does not ask for apprenticeships; a role does`, !listKeeps(boostApprentice, APPRENTICE_PLACEMENT) && listKeeps(roleApprentice, APPRENTICE_PLACEMENT), "wrong");
   t(`board: hand-added CS and apprentice titles stay; the same rows not hand-added drop`, matchJobs([{ ...inLondon(APPRENTICE_PLACEMENT), source: "manual" }, { ...inLondon(CYBER), source: "manual" }], own(["marketing", "digital"])).length === 2 && matchJobs([inLondon(APPRENTICE_PLACEMENT), inLondon(CYBER)], own(["marketing", "digital"])).length === 0, "wrong");
 
@@ -1234,7 +1234,7 @@ async function selfTest() {
 
   // Tech: unchanged, on these very titles too.
   t("a tech profile gets no extra rule (fieldNarrow is null)", fieldNarrow(ex) === null, JSON.stringify(fieldNarrow(ex)));
-  const NEW_TITLES = [...MAYA_DROPPED, ...MAYA_KEPT, GMME, APPRENTICE_PLACEMENT, "Social Media Intern", "Software Engineer Intern"];
+  const NEW_TITLES = [...BOARD_DROPPED, ...BOARD_KEPT, GMME, APPRENTICE_PLACEMENT, "Social Media Intern", "Software Engineer Intern"];
   const newRows = NEW_TITLES.flatMap((title) => [inLondon(title), listed(title), { ...inLondon(title), location: "Lisbon, Portugal" }]);
   const oldNew = newRows
     .filter((j) => INTERN_RE.test(j.title) && !EXCLUDE_RE.test(j.title))
@@ -1246,8 +1246,8 @@ async function selfTest() {
   t("a tech profile's opportunity rows for these titles are the very same array", fieldOpportunities(listedRows, ex) === listedRows, "filtered");
 
   // The board is cleared once: a finance board stored before these rules has the same field words.
-  const mayaFp = fieldFingerprint(maya);
-  t(`a non-tech fingerprint names both switches: "${mayaFp}"`, mayaFp === `non-tech|${fieldWordsRe(maya).source}|cs:dropped|apprentice:dropped`, mayaFp);
+  const marketerFp = fieldFingerprint(marketer);
+  t(`a non-tech fingerprint names both switches: "${marketerFp}"`, marketerFp === `non-tech|${fieldWordsRe(marketer).source}|cs:dropped|apprentice:dropped`, marketerFp);
   const storedBefore = { field_fingerprint: `non-tech|${fieldWordsRe(finance).source}`, jobs: [{ url: "https://example.com/gmme", title: GMME }] };
   t("a finance board stored before these rules is cleared", boardForField(storedBefore, fieldFingerprint(finance)).cleared === true, fieldFingerprint(finance));
   t("the same words with apprenticeships asked for give another fingerprint", fieldWords(boostApprentice).words.join() === fieldWords(roleApprentice).words.join() && fieldFingerprint(boostApprentice) !== fieldFingerprint(roleApprentice), fieldFingerprint(roleApprentice));
