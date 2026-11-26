@@ -333,3 +333,14 @@ owner mid-ticket: it must work for any field, not only finance.
 
 **Not checked.** Windows and macOS. Live numbers depend on what employers post on the day. A
 separate-agent evaluation of this change has not been run yet.
+
+**Separate evaluation (fresh agent, spec + commits only).** Scope is the six files; `npm test` exit
+0, 240 to 298 PASS, never-submit intact; tech discover output, URL lists and stdout identical to
+origin/main back to back; finance, marketing, law, HR, healthcare and design profiles get their own
+field words; live law and HR runs used the general list and kept no CS role. Limits it found: roles
+that give no field word ("Law intern") keep every internship, CS included, until `title_keywords` is
+set (discover prints how); the law board was empty today ("Trainee Solicitor Placement" is dropped
+because only the profile's own role words count) and the general list has no law, healthcare or
+design employers; "Lead Insight Analyst" and finance-titled engineering roles can still be kept.
+
+Evaluation (separate agent): PASS — tech discover output, URL lists and stdout are identical to origin/main, npm test passes (240 to 298 PASS) with never-submit intact, non-tech profiles get their own field words, the multi-sector list and no CS roles, with only minor false keeps and a thin law board (documented limits).
