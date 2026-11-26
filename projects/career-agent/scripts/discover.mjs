@@ -827,6 +827,8 @@ async function selfTest() {
     "Investment Banking - DACH ECM Analyst - London",
     "Executive Director, Software Engineering",
     "Private Banker - Saudi",
+    // Matches INTERN_RE and is not senior; only the EXCLUDE_RE part of the rule drops it.
+    "Internship Program Manager",
   ];
   for (const title of JPM_KEPT) t(`J.P. Morgan keeps "${title}"`, jpmStudentRole(title) === true, "dropped");
   for (const title of JPM_DROPPED) t(`J.P. Morgan drops "${title}"`, jpmStudentRole(title) === false, "kept");
