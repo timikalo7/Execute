@@ -118,6 +118,22 @@ export const declaresInstrument = (text) =>
 
 export const isCheckerFile = (f) => PROSE_EXEMPT_PATHS.some((re) => re.test(f.replace(/\\/g, "/")));
 
+/**
+ * HISTORY is not debt. A project's PROJECT-LOG.md, a post-mortem and the evaluations ledger are
+ * append-only records: an entry that says "Not checked: Windows" records what was true on its date,
+ * and editing it later would rewrite history. So a prose marker there can never be closed, the pile
+ * only grows, and every honest log entry forced an owner-approved budget raise (two in one day,
+ * 2026-11-26) without measuring any work left undone. The four PROSE markers are therefore not
+ * counted in these files. TODO(keys) and TODO(credits) still are: they are coined tokens that name
+ * a real missing credential or credit wherever they appear.
+ */
+export const HISTORY_PATHS = [
+  /(^|\/)PROJECT-LOG\.md$/,
+  /(^|\/)memory\/postmortems\//,
+  /(^|\/)memory\/evaluations\.md$/,
+];
+export const isHistoryFile = (f) => HISTORY_PATHS.some((re) => re.test(f.replace(/\\/g, "/")));
+
 const SKIP_DIRS = new Set([
   ".git", "node_modules", ".next", "dist", "build", ".store", "coverage",
   ".claude/skill-library", "out", ".venv", "__pycache__",
@@ -167,7 +183,7 @@ export function countMarkers(files, read = (f) => fs.readFileSync(f, "utf8")) {
     const checker = isCheckerFile(f) || declared;
     if (declared && !isCheckerFile(f)) declaredInstruments.push(f);
     for (const m of MARKERS) {
-      if (m.prose && checker) continue;
+      if (m.prose && (checker || isHistoryFile(f))) continue;
       const n = (text.match(m.re) || []).length;
       if (!n) continue;
       counts[m.id] += n;
@@ -213,7 +229,7 @@ function selfTest() {
   const inChecker = {
     ".claude/skills/visual-qa/design-loop.sh": "echo 'leg 3 NOT CHECKED'\nunverified\nstill open\nyour call\n",
     ".claude/hooks/pre-push-gate.sh": "NOT CHECKED\n",
-    "projects/p/PROJECT-LOG.md": "the vision leg is NOT CHECKED\n",
+    "projects/p/README.md": "the vision leg is NOT CHECKED\n",
   };
   const c2 = countMarkers(Object.keys(inChecker), (f) => inChecker[f]).counts;
   check(c2["not-checked"] === 1, `prose markers inside a checker are not repo debt (got ${c2["not-checked"]}, want 1 from the project file)`);
@@ -230,6 +246,14 @@ function selfTest() {
   check(declaresInstrument("// @debt-ratchet instrument\nNOT CHECKED"), "a file can declare itself an instrument");
   check(!declaresInstrument("// an ordinary source file\nNOT CHECKED"), "ordinary source does not declare itself one");
   check(!declaresInstrument(null) && !declaresInstrument(undefined), "a missing body declares nothing");
+  check(isHistoryFile("projects/p/PROJECT-LOG.md") && isHistoryFile("memory/postmortems/2026-01-01-x.md") && isHistoryFile("C:\\repo\\memory\\evaluations.md"), "logs, post-mortems and the evaluations ledger are history");
+  check(!isHistoryFile("projects/p/README.md") && !isHistoryFile("memory/principles.md") && !isHistoryFile("projects/p/PROJECT-LOG.md.bak"), "other docs are not history");
+  {
+    const body = { "projects/p/PROJECT-LOG.md": "NOT CHECKED: Windows. still open. TODO(keys) stripe", "projects/p/README.md": "NOT CHECKED: Windows" };
+    const { counts } = countMarkers(Object.keys(body), (f) => body[f]);
+    check(counts["not-checked"] === 1 && counts["still-open"] === 0, "a prose marker in a log is not counted, the same marker in a README is", JSON.stringify(counts));
+    check(counts["todo-keys"] === 1, "TODO(keys) in a log is still counted", JSON.stringify(counts));
+  }
 
   const b = { "todo-keys": { max: 2, reason: "r" }, "not-checked": { max: 1, reason: "r" }, "unverified": { max: 2, reason: "r" } };
   check(compare(counts, b).fails.length === 0, "at budget, nothing fails");
